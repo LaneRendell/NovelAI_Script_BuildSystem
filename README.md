@@ -97,7 +97,6 @@ NovelAI_Script_BuildSystem/
 // Define and export types
 export interface MyConfig {
     enabled: boolean;
-    apiKey: string;
 }
 
 // Export functions
