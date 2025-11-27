@@ -157,7 +157,21 @@ The build system will automatically:
 
 ### Customizing for Your Project
 
-#### 1. Update Script Metadata
+#### 1. Update Package Information
+
+Edit [package.json](package.json) with your project details:
+
+```json
+{
+  "name": "my-novelai-script",
+  "version": "1.0.0",
+  "description": "My awesome NovelAI script",
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT"
+}
+```
+
+#### 2. Update Script Metadata
 
 Edit the header in [build.js](build.js):
 
@@ -173,7 +187,7 @@ const scriptHeader = `/**
 `;
 ```
 
-#### 2. Change Output Filename
+#### 3. Change Output Filename
 
 In [build.js](build.js) at line ~110, update this line:
 
@@ -181,7 +195,7 @@ In [build.js](build.js) at line ~110, update this line:
 const outputPath = path.join(__dirname, 'dist', 'my-script-name.ts');
 ```
 
-#### 3. Organize Your Source Files
+#### 4. Organize Your Source Files
 
 Create `.ts` files in the `src/` directory for different parts of your script:
 
