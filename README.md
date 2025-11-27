@@ -65,7 +65,7 @@ This repository is designed as a **template/skeleton** for your NovelAI script d
 1. **Fork or download** this repository to start your own project
 2. **Delete or modify** the example code in `src/` to build your own script
 3. **Keep the build system** ([build.js](build.js), [package.json](package.json), [tsconfig.json](tsconfig.json))
-4. **Customize** the script metadata in [build.js](build.js)
+4. **Customize** your project - see [Customizing for Your Project](#customizing-for-your-project) below
 5. **Develop** your script using the workflow below
 
 ## Development Workflow
