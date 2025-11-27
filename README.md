@@ -23,7 +23,7 @@ A TypeScript build system for creating NovelAI scripts. This tool bundles multip
 **Option 1: Clone the repository**
 
 ```bash
-git clone <https://github.com/LaneRendell/NovelAI_Script_BuildSystem>
+git clone https://github.com/LaneRendell/NovelAI_Script_BuildSystem
 cd NovelAI_Script_BuildSystem
 npm install
 ```
