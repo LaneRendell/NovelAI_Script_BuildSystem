@@ -416,14 +416,6 @@ The build system removes all `import`/`export` statements. If you see module err
 2. **Check file order**: Verify files in `sourceFiles` are in dependency order (dependencies first)
 3. **Avoid dynamic imports**: Don't use `import()` or `require()` - they won't work
 
-### Script too large
-
-NovelAI has size limits for scripts. If your bundled script is too large:
-
-1. Remove unnecessary code and comments
-2. Split into multiple smaller scripts that communicate via `api.v1.messaging`
-3. Store large data in `api.v1.storage` instead of in your script
-
 ### Build succeeds but script doesn't work in NovelAI
 
 1. **Check the browser console** (F12) for error messages
