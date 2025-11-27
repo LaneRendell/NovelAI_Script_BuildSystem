@@ -118,7 +118,6 @@ import { saveData, formatMessage } from "./utils";
 
 const config: MyConfig = {
     enabled: true,
-    apiKey: "my-key",
 };
 
 async function init() {
