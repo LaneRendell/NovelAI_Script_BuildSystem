@@ -21,13 +21,15 @@ A TypeScript build system for creating NovelAI scripts. This tool bundles multip
 ### Installation
 
 **Option 1: Clone the repository**
+
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/LaneRendell/NovelAI_Script_BuildSystem>
 cd NovelAI_Script_BuildSystem
 npm install
 ```
 
 **Option 2: Download as ZIP**
+
 1. Download this repository as a ZIP file
 2. Extract it to your desired location
 3. Open a terminal in the extracted folder
@@ -36,11 +38,13 @@ npm install
 ### Your First Build
 
 1. **Install dependencies** (if you haven't already):
+
 ```bash
 npm install
 ```
 
 2. **Build the example script**:
+
 ```bash
 npm run build
 ```
@@ -138,6 +142,7 @@ const sourceFiles = [
 ```
 
 The build system will automatically:
+
 - Remove all `import` and `export` statements
 - Bundle files in the order you specify
 - Preserve all your code and types
@@ -319,12 +324,14 @@ const value = entry.keys?.find(k => k === "search") ?? "default";
 ### Code Organization Patterns
 
 **Small Scripts** (single feature):
+
 ```text
 src/
 └── index.ts       # Everything in one file
 ```
 
 **Medium Scripts** (multiple features):
+
 ```text
 src/
 ├── utils.ts       # Helper functions
@@ -332,6 +339,7 @@ src/
 ```
 
 **Large Scripts** (complex application):
+
 ```text
 src/
 ├── types.ts        # Type definitions
@@ -459,7 +467,7 @@ MIT License - feel free to use this build system for your NovelAI script project
 ## Resources
 
 - **[NovelAI Scripting Documentation](https://docs.novelai.net/scripting/introduction.html)** - Official guide and tutorials
-- **[NovelAI Scripting API Reference](https://novelai.github.io/scripting/)** - Complete API documentation
+- **[NovelAI Scripting API Reference](https://docs.novelai.net/en/scripting/api-reference)** - Complete API documentation
 - **[TypeScript Documentation](https://www.typescriptlang.org/docs/)** - Learn TypeScript
 - **[NovelAI Discord](https://discord.gg/novelai)** - Get help from the community
 
