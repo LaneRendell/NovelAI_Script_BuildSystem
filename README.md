@@ -391,21 +391,6 @@ npm run build:watch
 
 Make a change → save → auto-rebuild → test in NovelAI.
 
-### Performance Considerations
-
-NovelAI scripts have resource limits:
-
-- **Memory limit**: Check `api.v1.script.memoryLimit` to see your limit
-- **Execution time**: Long-running operations may time out
-- **Bundle size**: Keep it reasonable (under 100KB is good)
-
-**Best practices**:
-
-- Use `await api.v1.timers.sleep(ms)` to yield control in long loops
-- Avoid expensive operations in generation hooks (they run frequently)
-- Cache results when possible using `api.v1.storage`
-- Don't store large objects in memory - use storage instead
-
 ## Troubleshooting
 
 ### "Cannot find module" errors during development
