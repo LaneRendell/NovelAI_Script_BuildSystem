@@ -1,0 +1,10 @@
+{
+    "name": "word-counter",
+    "version": "1.0.0",
+    "author": "NovelAI Script Build System",
+    "description": "A simple word and character counter for your story",
+    "license": "MIT",
+    "sourceFiles": [
+        "src/index.ts"
+    ]
+}

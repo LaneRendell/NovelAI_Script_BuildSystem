@@ -14,10 +14,9 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noEmit": true,
     "typeRoots": ["./external", "./node_modules/@types"]
   },
-  "include": ["src/**/*", "external/**/*"],
+  "include": ["projects/**/*", "external/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
