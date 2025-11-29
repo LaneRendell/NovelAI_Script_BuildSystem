@@ -5,6 +5,7 @@ const https = require('https');
 // Parse command line arguments
 const args = process.argv.slice(2);
 const isWatch = args.includes('--watch');
+const forceRefreshTypes = args.includes('--refresh-types');
 const projectArg = args.find(arg => !arg.startsWith('--'));
 
 // Ensure dist and external directories exist
@@ -19,13 +20,13 @@ if (!fs.existsSync('external')) {
 // External Types Fetching
 // =============================================================================
 
-function fetchExternalTypes() {
+function fetchExternalTypes(forceRefresh = false) {
     return new Promise((resolve, reject) => {
         const url = 'https://novelai.github.io/scripting/types/script-types.d.ts';
         const outputPath = path.join(__dirname, 'external', 'script-types.d.ts');
 
-        // Check if file already exists and is less than 24 hours old
-        if (fs.existsSync(outputPath)) {
+        // Check if file already exists and is less than 24 hours old (unless force refresh)
+        if (!forceRefresh && fs.existsSync(outputPath)) {
             const stats = fs.statSync(outputPath);
             const age = Date.now() - stats.mtimeMs;
             const hoursOld = age / (1000 * 60 * 60);
@@ -37,7 +38,7 @@ function fetchExternalTypes() {
             }
         }
 
-        console.log('📥 Fetching NovelAI type definitions...');
+        console.log(forceRefresh ? '📥 Force refreshing NovelAI type definitions...' : '📥 Fetching NovelAI type definitions...');
 
         https.get(url, (res) => {
             if (res.statusCode !== 200) {
@@ -263,7 +264,7 @@ async function buildAll() {
     }
 
     // Fetch external types first
-    await fetchExternalTypes();
+    await fetchExternalTypes(forceRefreshTypes);
 
     const projects = discoverProjects();
 
@@ -287,7 +288,7 @@ async function buildAll() {
 
 async function buildOne(projectName) {
     // Fetch external types first
-    await fetchExternalTypes();
+    await fetchExternalTypes(forceRefreshTypes);
 
     const projects = discoverProjects();
     const project = projects.find(p => p.name === projectName || p.config.name === projectName);
@@ -365,14 +366,16 @@ Usage:
   node build.js [options] [project-name]
 
 Options:
-  --watch    Watch for changes and rebuild automatically
-  --help     Show this help message
+  --watch          Watch for changes and rebuild automatically
+  --refresh-types  Force download fresh NovelAI type definitions
+  --help           Show this help message
 
 Examples:
-  node build.js              Build all projects
-  node build.js my-script    Build only "my-script" project
-  node build.js --watch      Watch and rebuild all projects
+  node build.js                    Build all projects
+  node build.js my-script          Build only "my-script" project
+  node build.js --watch            Watch and rebuild all projects
   node build.js --watch my-script  Watch specific project
+  node build.js --refresh-types    Build with fresh type definitions
 
 Project Structure:
   /projects/
