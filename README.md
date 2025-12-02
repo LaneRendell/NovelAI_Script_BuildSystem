@@ -126,7 +126,10 @@ For more control, create a `project.json` in your project folder:
 
 You can split your code across multiple files using imports/exports. The build system removes all module syntax in the final output.
 
+### Named Imports (Traditional Style)
+
 **projects/my-script/src/utils.ts**
+
 ```typescript
 export interface Config {
     enabled: boolean;
@@ -143,6 +146,7 @@ export function log(message: string) {
 ```
 
 **projects/my-script/src/index.ts**
+
 ```typescript
 import type { Config } from "./utils";
 import { saveConfig, log } from "./utils";
@@ -160,7 +164,44 @@ async function init() {
 init();
 ```
 
+### Namespace Imports
+
+You can also use namespace imports (`import * as name`) to keep track of where functions come from:
+
+**projects/my-script/src/index.ts**
+
+```typescript
+import type { Config } from "./utils";
+import * as utils from "./utils";
+
+const config: Config = {
+    enabled: true,
+    debugMode: false,
+};
+
+async function init() {
+    utils.log("Starting...");
+    await utils.saveConfig(config);
+}
+
+init();
+```
+
+The build system automatically generates a namespace wrapper object:
+
+```typescript
+const utils = {
+    saveConfig,
+    log
+};
+```
+
+You can mix both styles in the same file if needed.
+
+### Source File Order
+
 **Important:** List files in `project.json` with dependencies first:
+
 ```json
 {
     "sourceFiles": [
