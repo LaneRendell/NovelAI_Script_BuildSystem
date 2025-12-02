@@ -2,6 +2,39 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [2.1.0] - 2024-12-02
+
+### Added
+
+- **Namespace import support**: You can now use `import * as name from "./module"` syntax
+  - The build system automatically generates namespace wrapper objects
+  - Use `name.function()` syntax to clearly indicate where functions come from
+  - Mix namespace and named imports in the same project
+  - Wrappers are generated immediately after the source module to ensure proper ordering
+
+### Example
+
+```typescript
+// You can now write this:
+import * as utils from "./utils";
+
+// And use it like this:
+utils.formatTimestamp(Date.now());
+utils.showNotification("Hello!");
+```
+
+The build system generates:
+
+```typescript
+const utils = {
+    formatTimestamp,
+    showNotification,
+    // ...all exports from utils.ts
+};
+```
+
+---
+
 ## [2.0.0] - 2024-11-29
 
 ### Added

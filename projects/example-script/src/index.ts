@@ -14,14 +14,12 @@
 // Import utilities from another file
 // These imports will be removed during the build process
 import type { ScriptConfig } from "./utils";
-import {
-    incrementRunCount,
-    incrementGenerationCount,
-    getStats,
-    formatTimestamp,
-    debugLog,
-    showNotification
-} from "./utils";
+
+// You can use EITHER named imports (traditional style):
+import { formatTimestamp, debugLog } from "./utils";
+
+// OR namespace imports (the build system creates wrapper objects for these):
+import * as utils from "./utils";
 
 // Script configuration
 const CONFIG: ScriptConfig = {
@@ -44,8 +42,9 @@ async function init() {
     // Set up generation hooks
     setupGenerationHooks();
 
-    // Example: Use imported utility to increment run count
-    const runCount = await incrementRunCount();
+    // Example: Use imported utility to increment run count (using namespace style)
+    const runCount = await utils.incrementRunCount();
+    // Using direct import style for debugLog
     debugLog(CONFIG, "Run count incremented to:", runCount);
     api.v1.log(`Script has been loaded ${runCount} times`);
 }
@@ -69,17 +68,18 @@ async function registerUIExtension() {
  * Handle toolbar button click
  */
 async function handleButtonClick() {
-    // Use imported utility for notifications
-    await showNotification("Example button clicked!", "success");
+    // Use imported utility for notifications (namespace style)
+    await utils.showNotification("Example button clicked!", "success");
 
+    // Using direct import style for formatTimestamp
     api.v1.log("Button clicked at:", formatTimestamp(Date.now()));
 
     // Example: Get current document text
     const text = await api.v1.document.textFromSelection();
     api.v1.log("Current document has", text.length, "characters");
 
-    // Display stats using imported utility
-    const stats = await getStats();
+    // Display stats using namespace style
+    const stats = await utils.getStats();
     api.v1.log("Script stats:", stats);
 
     // Example: Call lorebook function
@@ -129,8 +129,9 @@ function setupGenerationHooks() {
 
         api.v1.log("Generation ended");
 
-        // Update statistics using imported utility
-        const genCount = await incrementGenerationCount();
+        // Update statistics using namespace style
+        const genCount = await utils.incrementGenerationCount();
+        // Mix: using direct import for debugLog
         debugLog(CONFIG, "Generation count:", genCount);
     });
 }

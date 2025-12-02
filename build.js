@@ -158,6 +158,79 @@ function autoDiscoverSourceFiles(srcPath) {
 // Build Functions
 // =============================================================================
 
+/**
+ * Parse namespace imports from content
+ * Returns array of { alias: string, modulePath: string }
+ */
+function parseNamespaceImports(content) {
+    const namespaceImports = [];
+    // Match: import * as alias from "./module" or './module'
+    const regex = /^import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+        namespaceImports.push({
+            alias: match[1],
+            modulePath: match[2]
+        });
+    }
+    return namespaceImports;
+}
+
+/**
+ * Parse exported identifiers from a module's content
+ * Returns array of exported names (functions, constants, classes)
+ */
+function parseExports(content) {
+    const exports = [];
+
+    // Match: export function name
+    const funcRegex = /^export\s+(?:async\s+)?function\s+(\w+)/gm;
+    let match;
+    while ((match = funcRegex.exec(content)) !== null) {
+        exports.push(match[1]);
+    }
+
+    // Match: export const/let/var name
+    const varRegex = /^export\s+(?:const|let|var)\s+(\w+)/gm;
+    while ((match = varRegex.exec(content)) !== null) {
+        exports.push(match[1]);
+    }
+
+    // Match: export class name
+    const classRegex = /^export\s+class\s+(\w+)/gm;
+    while ((match = classRegex.exec(content)) !== null) {
+        exports.push(match[1]);
+    }
+
+    // Match: export enum name
+    const enumRegex = /^export\s+enum\s+(\w+)/gm;
+    while ((match = enumRegex.exec(content)) !== null) {
+        exports.push(match[1]);
+    }
+
+    return exports;
+}
+
+/**
+ * Resolve a relative module path to a source file path
+ */
+function resolveModulePath(importPath, currentFile, projectPath) {
+    // Remove ./ or ../ prefix and add .ts extension if needed
+    let resolved = importPath;
+    if (!resolved.endsWith('.ts')) {
+        resolved += '.ts';
+    }
+
+    // Get the directory of the current file
+    const currentDir = path.dirname(currentFile);
+
+    // Resolve relative to current file's directory
+    const fullPath = path.resolve(projectPath, currentDir, resolved);
+
+    // Return path relative to project root
+    return path.relative(projectPath, fullPath).replace(/\\/g, '/');
+}
+
 function removeImportsExports(content) {
     // Remove import statements (including multiline imports and type imports)
     content = content.replace(/^import\s+type\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm, '');
@@ -205,6 +278,62 @@ async function buildProject(project) {
 
     console.log(`\n🔨 Building project: ${name}`);
 
+    // First pass: Build export map for all source files
+    const exportMap = new Map(); // Map<modulePath, string[]> - exports for each module
+    const rawContents = new Map(); // Map<filePath, string> - raw file contents
+
+    for (const file of config.sourceFiles) {
+        const filePath = path.join(projectPath, file);
+
+        if (!fs.existsSync(filePath)) {
+            continue;
+        }
+
+        const content = fs.readFileSync(filePath, 'utf8');
+        rawContents.set(file, content);
+
+        // Parse and store exports for this file
+        const exports = parseExports(content);
+        exportMap.set(file, exports);
+    }
+
+    // Second pass: Build a map of which namespace wrappers need to be generated after each source file
+    // Map<sourceFile, Array<{ alias, exports[] }>>
+    const wrappersAfterFile = new Map();
+
+    for (const file of config.sourceFiles) {
+        const content = rawContents.get(file);
+        if (!content) continue;
+
+        const namespaceImports = parseNamespaceImports(content);
+
+        for (const nsImport of namespaceImports) {
+            // Resolve the module path relative to the importing file
+            const resolvedPath = resolveModulePath(nsImport.modulePath, file, projectPath);
+
+            // Look up exports for this module
+            const moduleExports = exportMap.get(resolvedPath);
+
+            if (moduleExports && moduleExports.length > 0) {
+                // Add wrapper to be generated after the source module
+                if (!wrappersAfterFile.has(resolvedPath)) {
+                    wrappersAfterFile.set(resolvedPath, []);
+                }
+
+                const wrappers = wrappersAfterFile.get(resolvedPath);
+                // Check if we already have a wrapper for this alias
+                const existing = wrappers.find(w => w.alias === nsImport.alias);
+                if (!existing) {
+                    wrappers.push({
+                        alias: nsImport.alias,
+                        exports: moduleExports
+                    });
+                }
+            }
+        }
+    }
+
+    // Build the bundled content
     let bundledContent = generateScriptHeader(config);
 
     for (const file of config.sourceFiles) {
@@ -215,7 +344,7 @@ async function buildProject(project) {
             continue;
         }
 
-        let content = fs.readFileSync(filePath, 'utf8');
+        let content = rawContents.get(file);
 
         // Remove imports and exports
         content = removeImportsExports(content);
@@ -226,6 +355,17 @@ async function buildProject(project) {
         bundledContent += `// ============================================================================\n\n`;
         bundledContent += content;
         bundledContent += '\n';
+
+        // Generate namespace wrappers for this module (if any files import it as namespace)
+        const wrappers = wrappersAfterFile.get(file);
+        if (wrappers && wrappers.length > 0) {
+            bundledContent += `// Namespace wrapper(s) for ${file}\n`;
+            for (const wrapper of wrappers) {
+                bundledContent += `const ${wrapper.alias} = {\n`;
+                bundledContent += wrapper.exports.map(e => `    ${e}`).join(',\n');
+                bundledContent += `\n};\n\n`;
+            }
+        }
     }
 
     // Create project-specific output directory
