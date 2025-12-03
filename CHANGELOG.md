@@ -2,7 +2,7 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
-## [2.1.0] - 2024-12-02
+## [2.1.0] - 2025-12-02
 
 ### Added
 
@@ -40,7 +40,7 @@ const utils = {
 
 ---
 
-## [2.0.0] - 2024-11-29
+## [2.0.0] - 2025-11-29
 
 ### Added
 
@@ -76,7 +76,7 @@ const utils = {
 
 - Legacy single-project mode with root `src/` directory (use `projects/` instead)
 
-## [1.0.0] - 2024-11-29
+## [1.0.0] - 2025-11-29
 
 ### Added
 
