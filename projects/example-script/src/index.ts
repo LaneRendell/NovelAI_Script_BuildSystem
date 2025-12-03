@@ -13,16 +13,17 @@
 
 // Import utilities from another file
 // These imports will be removed during the build process
-import type { ScriptConfig } from "./utils";
 
 // You can use EITHER named imports (traditional style):
 import { formatTimestamp, debugLog } from "./utils";
 
 // OR namespace imports (the build system creates wrapper objects for these):
+// This also works for TYPES - you can use utils.ScriptConfig, utils.ScriptStats, etc.
 import * as utils from "./utils";
 
-// Script configuration
-const CONFIG: ScriptConfig = {
+// Script configuration - using namespace type annotation (utils.ScriptConfig)
+// This demonstrates that interfaces work with namespace imports!
+const CONFIG: utils.ScriptConfig = {
     scriptName: "Example Script",
     version: "1.0.0",
     enabled: true,
@@ -79,7 +80,8 @@ async function handleButtonClick() {
     api.v1.log("Current document has", text.length, "characters");
 
     // Display stats using namespace style
-    const stats = await utils.getStats();
+    // Type annotation also uses namespace: utils.ScriptStats
+    const stats: utils.ScriptStats = await utils.getStats();
     api.v1.log("Script stats:", stats);
 
     // Example: Call lorebook function

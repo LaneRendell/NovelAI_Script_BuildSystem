@@ -177,10 +177,11 @@ function parseNamespaceImports(content) {
 }
 
 /**
- * Parse exported identifiers from a module's content
- * Returns array of exported names (functions, constants, classes)
+ * Parse exported VALUE identifiers from a module's content
+ * Returns array of exported names (functions, constants, classes, enums)
+ * Note: interfaces and type aliases are NOT included - they don't exist at runtime
  */
-function parseExports(content) {
+function parseValueExports(content) {
     const exports = [];
 
     // Match: export function name
@@ -209,6 +210,48 @@ function parseExports(content) {
     }
 
     return exports;
+}
+
+/**
+ * Parse exported TYPE declarations from a module's content
+ * Returns array of { name, declaration } for interfaces and type aliases
+ * These need to go in a namespace for type access via namespace.TypeName
+ */
+function parseTypeExports(content) {
+    const typeExports = [];
+
+    // Match: export interface Name { ... }
+    // Need to handle nested braces
+    const interfaceRegex = /^export\s+(interface\s+\w+(?:\s+extends\s+[^{]+)?)\s*\{/gm;
+    let match;
+    while ((match = interfaceRegex.exec(content)) !== null) {
+        const startIndex = match.index;
+        const declarationStart = match[1]; // "interface Name" or "interface Name extends X"
+
+        // Find the matching closing brace
+        let braceCount = 1;
+        let i = match.index + match[0].length;
+        while (i < content.length && braceCount > 0) {
+            if (content[i] === '{') braceCount++;
+            else if (content[i] === '}') braceCount--;
+            i++;
+        }
+
+        const fullDeclaration = content.slice(startIndex + 'export '.length, i);
+        const name = declarationStart.match(/interface\s+(\w+)/)[1];
+        typeExports.push({ name, declaration: fullDeclaration });
+    }
+
+    // Match: export type Name = ...;
+    const typeAliasRegex = /^export\s+(type\s+(\w+)(?:<[^>]*>)?\s*=\s*[^;]+;)/gm;
+    while ((match = typeAliasRegex.exec(content)) !== null) {
+        typeExports.push({
+            name: match[2],
+            declaration: match[1]
+        });
+    }
+
+    return typeExports;
 }
 
 /**
@@ -278,9 +321,10 @@ async function buildProject(project) {
 
     console.log(`\n🔨 Building project: ${name}`);
 
-    // First pass: Build export map for all source files
-    const exportMap = new Map(); // Map<modulePath, string[]> - exports for each module
-    const rawContents = new Map(); // Map<filePath, string> - raw file contents
+    // First pass: Build export maps for all source files
+    const valueExportMap = new Map(); // Map<modulePath, string[]> - value exports (functions, const, etc.)
+    const typeExportMap = new Map();  // Map<modulePath, Array<{name, declaration}>> - type exports (interfaces, type aliases)
+    const rawContents = new Map();    // Map<filePath, string> - raw file contents
 
     for (const file of config.sourceFiles) {
         const filePath = path.join(projectPath, file);
@@ -292,13 +336,17 @@ async function buildProject(project) {
         const content = fs.readFileSync(filePath, 'utf8');
         rawContents.set(file, content);
 
-        // Parse and store exports for this file
-        const exports = parseExports(content);
-        exportMap.set(file, exports);
+        // Parse and store value exports (runtime) for this file
+        const valueExports = parseValueExports(content);
+        valueExportMap.set(file, valueExports);
+
+        // Parse and store type exports (compile-time) for this file
+        const typeExports = parseTypeExports(content);
+        typeExportMap.set(file, typeExports);
     }
 
     // Second pass: Build a map of which namespace wrappers need to be generated after each source file
-    // Map<sourceFile, Array<{ alias, exports[] }>>
+    // Map<sourceFile, Array<{ alias, valueExports[], typeExports[] }>>
     const wrappersAfterFile = new Map();
 
     for (const file of config.sourceFiles) {
@@ -312,9 +360,10 @@ async function buildProject(project) {
             const resolvedPath = resolveModulePath(nsImport.modulePath, file, projectPath);
 
             // Look up exports for this module
-            const moduleExports = exportMap.get(resolvedPath);
+            const moduleValueExports = valueExportMap.get(resolvedPath) || [];
+            const moduleTypeExports = typeExportMap.get(resolvedPath) || [];
 
-            if (moduleExports && moduleExports.length > 0) {
+            if (moduleValueExports.length > 0 || moduleTypeExports.length > 0) {
                 // Add wrapper to be generated after the source module
                 if (!wrappersAfterFile.has(resolvedPath)) {
                     wrappersAfterFile.set(resolvedPath, []);
@@ -326,7 +375,8 @@ async function buildProject(project) {
                 if (!existing) {
                     wrappers.push({
                         alias: nsImport.alias,
-                        exports: moduleExports
+                        valueExports: moduleValueExports,
+                        typeExports: moduleTypeExports
                     });
                 }
             }
@@ -361,9 +411,28 @@ async function buildProject(project) {
         if (wrappers && wrappers.length > 0) {
             bundledContent += `// Namespace wrapper(s) for ${file}\n`;
             for (const wrapper of wrappers) {
-                bundledContent += `const ${wrapper.alias} = {\n`;
-                bundledContent += wrapper.exports.map(e => `    ${e}`).join(',\n');
-                bundledContent += `\n};\n\n`;
+                // Generate TypeScript namespace for types (interfaces, type aliases)
+                // This uses declaration merging with the const below
+                if (wrapper.typeExports.length > 0) {
+                    bundledContent += `namespace ${wrapper.alias} {\n`;
+                    for (const typeExport of wrapper.typeExports) {
+                        // Indent each line of the declaration
+                        const indented = typeExport.declaration
+                            .split('\n')
+                            .map(line => `    ${line}`)
+                            .join('\n');
+                        bundledContent += `    export ${indented.trimStart()}\n`;
+                    }
+                    bundledContent += `}\n`;
+                }
+
+                // Generate const object for runtime values (functions, variables, etc.)
+                if (wrapper.valueExports.length > 0) {
+                    bundledContent += `const ${wrapper.alias} = {\n`;
+                    bundledContent += wrapper.valueExports.map(e => `    ${e}`).join(',\n');
+                    bundledContent += `\n};\n`;
+                }
+                bundledContent += '\n';
             }
         }
     }

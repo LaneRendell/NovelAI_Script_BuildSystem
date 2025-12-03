@@ -11,6 +11,8 @@ All notable changes to the NovelAI Script Build System will be documented in thi
   - Use `name.function()` syntax to clearly indicate where functions come from
   - Mix namespace and named imports in the same project
   - Wrappers are generated immediately after the source module to ensure proper ordering
+  - **Full type support**: Interfaces and type aliases are accessible via `namespace.TypeName`
+    - Uses TypeScript declaration merging (namespace + const with same name)
 
 ### Example
 
@@ -18,18 +20,21 @@ All notable changes to the NovelAI Script Build System will be documented in thi
 // You can now write this:
 import * as utils from "./utils";
 
-// And use it like this:
+// And use both types and functions:
+const config: utils.ScriptConfig = { name: "My Script" };
 utils.formatTimestamp(Date.now());
-utils.showNotification("Hello!");
 ```
 
-The build system generates:
+The build system generates both a namespace (for types) and const (for values):
 
 ```typescript
+namespace utils {
+    export interface ScriptConfig { ... }
+}
 const utils = {
     formatTimestamp,
     showNotification,
-    // ...all exports from utils.ts
+    // ...all value exports
 };
 ```
 
