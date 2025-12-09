@@ -63,12 +63,15 @@ NovelAI_Script_BuildSystem/
 
 ## Creating a New Project
 
+
+
 ### Quick Start (No Configuration)
 
-1. Create a folder in `projects/`:
+1. Use the new project command:
    ```bash
-   mkdir -p projects/my-script/src
+   npm run new
    ```
+   Answer the questions, your new project will be placed under `projects/`
 
 2. Add your TypeScript files:
    ```bash

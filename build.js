@@ -6,10 +6,15 @@ import {
   readdirSync,
   readFileSync,
   watch as _watch,
+  write,
+  copyFileSync,
 } from "fs";
 import { join, relative, dirname, resolve as _resolve, sep } from "path";
 import { get } from "https";
 import { program } from "commander";
+import inquirer from "inquirer";
+import { randomUUID } from "crypto";
+import * as yaml from "yaml";
 
 const __dirname = import.meta.dirname;
 
@@ -33,6 +38,8 @@ program
       showHelp();
       process.exit(0);
     }
+
+    ensureDirectories();
 
     // If forcing a type refresh
     if (options.refreshTypes) {
@@ -70,6 +77,10 @@ program
     }
   });
 
+program.command("new").action(() => {
+  createNewProject();
+});
+
 program.addHelpText(
   "after",
   `Examples:
@@ -77,39 +88,7 @@ program.addHelpText(
   node build.js my-script          Build only "my-script" project
   node build.js --watch            Watch and rebuild all projects
   node build.js --watch my-script  Watch specific project
-  node build.js --refresh-types    Build with fresh type definitions
-
-Project Structure:
-  /projects/
-    /my-script/
-      /project.json       Project configuration (optional)
-      /src/
-        /index.ts         Main entry point
-        /utils.ts         Additional source files
-    /another-script/
-      /project.json
-      /src/
-        /index.ts
-  /dist/                  Built outputs
-    /my-script/
-      /my-script.ts       Ready to paste into NovelAI
-    /another-script/
-      /another-script.ts
-
-project.json format:
-  {
-    "name": "my-script",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "description": "Script description",
-    "license": "MIT",
-    "sourceFiles": [
-      "src/utils.ts",
-      "src/index.ts"
-    ]
-  }
-
-Note: If project.json is missing, source files are auto-discovered from src/`,
+  node build.js --refresh-types    Build with fresh type definitions`,
 );
 
 program.parse();
@@ -198,14 +177,7 @@ function discoverProjects() {
         projects.push({
           name: entry.name,
           path: projectPath,
-          config: {
-            name: config.name || entry.name,
-            version: config.version || "1.0.0",
-            author: config.author || "Unknown",
-            description: config.description || "",
-            license: config.license || "MIT",
-            sourceFiles: config.sourceFiles || ["src/index.ts"],
-          },
+          config: projectConfigDefaultWithUpdate(entry.name, config),
         });
       } catch (err) {
         console.warn(
@@ -222,20 +194,31 @@ function discoverProjects() {
         projects.push({
           name: entry.name,
           path: projectPath,
-          config: {
-            name: entry.name,
-            version: "1.0.0",
-            author: "Unknown",
-            description: "",
-            license: "MIT",
+          config: projectConfigDefaultWithUpdate(entry.name, {
             sourceFiles: autoDiscoverSourceFiles(srcPath),
-          },
+          }),
         });
       }
     }
   }
 
   return projects;
+}
+
+function projectConfigDefaultWithUpdate(name, config) {
+  return {
+    id: randomUUID(),
+    name: name,
+    version: "1.0.0",
+    createdAt: currentEpochS(),
+    author: "Unknown",
+    description: "",
+    license: "MIT",
+    sourceFiles: ["src/index.ts"],
+    memoryLimit: 8,
+    ...config, // Merge current project.json over the above defaults
+    updatedAt: currentEpochS(), // Update the updatedAt field
+  };
 }
 
 /**
@@ -411,37 +394,35 @@ function removeImportsExports(content) {
 }
 
 function generateScriptHeader(config) {
-  return `/**
- * ${config.name}
- * Version: ${config.version}
- * Author: ${config.author}
- * Description: ${config.description}
- * License: ${config.license}
- *
+  const {
+    id,
+    name,
+    createdAt,
+    updatedAt,
+    version,
+    author,
+    license,
+    description,
+    memoryLimit,
+  } = config;
+  return `/*---
+${yaml.stringify({
+  compatibilityVersion: "naiscript-1.0",
+  id,
+  name,
+  createdAt,
+  updatedAt,
+  version,
+  author,
+  description,
+  memoryLimit,
+})}---*/
+
+/**
+ * ${name}
+ * License: ${license}
  * Built with NovelAI Script Build System
- */
-
-`;
-}
-
-function generateDistTsConfig() {
-  return JSON.stringify(
-    {
-      compilerOptions: {
-        target: "ES2020",
-        module: "ESNext",
-        lib: ["ES2020"],
-        moduleResolution: "bundler",
-        strict: false,
-        noEmit: true,
-        skipLibCheck: true,
-        typeRoots: ["../../external", "../../node_modules/@types"],
-      },
-      include: ["./*.ts", "../../external/**/*"],
-    },
-    null,
-    2,
-  );
+ */\n`;
 }
 
 async function buildProject(project) {
@@ -515,6 +496,12 @@ async function buildProject(project) {
     }
   }
 
+  // Write config with bumped updatedAt
+  writeFileSync(
+    join(project.path, "project.json"),
+    JSON.stringify(project.config, null, 2),
+  );
+
   // Build the bundled content
   let bundledContent = generateScriptHeader(config);
 
@@ -578,15 +565,9 @@ async function buildProject(project) {
   }
 
   // Write the bundled script
-  const outputFilename = `${config.name}.ts`;
+  const outputFilename = `${config.name}.naiscript`;
   const outputPath = join(projectDistDir, outputFilename);
   writeFileSync(outputPath, bundledContent, "utf8");
-
-  // Write project-specific tsconfig for IDE type hints
-  const tsconfigPath = join(projectDistDir, "tsconfig.json");
-  if (!existsSync(tsconfigPath)) {
-    writeFileSync(tsconfigPath, generateDistTsConfig(), "utf8");
-  }
 
   // Show output file size
   const stats = statSync(outputPath);
@@ -705,4 +686,73 @@ async function watch(projectName) {
   } else {
     await buildAll();
   }
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+function currentEpochS() {
+  return Math.floor(Date.now() / 1000);
+}
+
+// =============================================================================
+// Create new project
+// =============================================================================
+
+function createNewProject() {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "name",
+        message: "What will you name your script?",
+      },
+      {
+        type: "input",
+        name: "author",
+        message: "And who is the author?",
+      },
+      {
+        type: "input",
+        name: "description",
+        message: "Write a brief description:",
+        default: "",
+      },
+      {
+        type: "input",
+        name: "license",
+        message: "What license is the script published under?",
+        default: "MIT",
+      },
+    ])
+    .then((answers) => {
+      const project = {
+        id: randomUUID(),
+        name: answers.name,
+        version: "1.0.0",
+        createdAt: currentEpochS(),
+        updatedAt: currentEpochS(),
+        author: answers.author,
+        description: answers.description,
+        license: answers.license,
+        sourceFiles: ["src/index.ts"],
+      };
+
+      const projectPath = join(__dirname, "projects", answers.name);
+      if (!existsSync(projectPath)) {
+        mkdirSync(projectPath);
+      } else {
+        console.error("Project already exists");
+        return;
+      }
+
+      writeFileSync(
+        join(projectPath, "project.json"),
+        JSON.stringify(project, null, 2),
+        "utf8",
+      );
+
+      console.log(`Project created at ${projectPath}`);
+    });
 }
