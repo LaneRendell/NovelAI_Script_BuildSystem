@@ -10,6 +10,7 @@
     "build:watch": "node build.js --watch",
     "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
     "typecheck": "tsc --noEmit",
+    "new": "node build.js new",
     "help": "node build.js --help"
   },
   "devDependencies": {

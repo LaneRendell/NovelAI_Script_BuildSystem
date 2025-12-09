@@ -8,6 +8,7 @@ import {
   watch as _watch,
   write,
   copyFileSync,
+  readFile,
 } from "fs";
 import { join, relative, dirname, resolve as _resolve, sep } from "path";
 import { get } from "https";
@@ -169,15 +170,17 @@ function discoverProjects() {
     if (!entry.isDirectory()) continue;
 
     const projectPath = join(projectsDir, entry.name);
-    const configPath = join(projectPath, "project.json");
+    const metaPath = join(projectPath, "project.json");
+    const configPath = join(projectPath, "config.yaml");
 
-    if (existsSync(configPath)) {
+    if (existsSync(metaPath)) {
       try {
-        const config = JSON.parse(readFileSync(configPath, "utf8"));
+        const meta = JSON.parse(readFileSync(metaPath, "utf8"));
         projects.push({
           name: entry.name,
           path: projectPath,
-          config: projectConfigDefaultWithUpdate(entry.name, config),
+          meta: projectMetaDefaultWithUpdate(entry.name, meta),
+          config: projectConfigOrDefault(configPath),
         });
       } catch (err) {
         console.warn(
@@ -194,7 +197,7 @@ function discoverProjects() {
         projects.push({
           name: entry.name,
           path: projectPath,
-          config: projectConfigDefaultWithUpdate(entry.name, {
+          config: projectMetaDefaultWithUpdate(entry.name, {
             sourceFiles: autoDiscoverSourceFiles(srcPath),
           }),
         });
@@ -205,7 +208,7 @@ function discoverProjects() {
   return projects;
 }
 
-function projectConfigDefaultWithUpdate(name, config) {
+function projectMetaDefaultWithUpdate(name, config) {
   return {
     id: randomUUID(),
     name: name,
@@ -426,7 +429,7 @@ ${yaml.stringify({
 }
 
 async function buildProject(project) {
-  const { name, path: projectPath, config } = project;
+  const { name, path: projectPath, meta, config } = project;
 
   console.log(`\n🔨 Building project: ${name}`);
 
@@ -435,7 +438,7 @@ async function buildProject(project) {
   const typeExportMap = new Map(); // Map<modulePath, Array<{name, declaration}>> - type exports (interfaces, type aliases)
   const rawContents = new Map(); // Map<filePath, string> - raw file contents
 
-  for (const file of config.sourceFiles) {
+  for (const file of meta.sourceFiles) {
     const filePath = join(projectPath, file);
 
     if (!existsSync(filePath)) {
@@ -458,7 +461,7 @@ async function buildProject(project) {
   // Map<sourceFile, Array<{ alias, valueExports[], typeExports[] }>>
   const wrappersAfterFile = new Map();
 
-  for (const file of config.sourceFiles) {
+  for (const file of meta.sourceFiles) {
     const content = rawContents.get(file);
     if (!content) continue;
 
@@ -496,16 +499,16 @@ async function buildProject(project) {
     }
   }
 
-  // Write config with bumped updatedAt
+  // Write meta with bumped updatedAt
   writeFileSync(
     join(project.path, "project.json"),
-    JSON.stringify(project.config, null, 2),
+    JSON.stringify(project.meta, null, 2),
   );
 
   // Build the bundled content
-  let bundledContent = generateScriptHeader(config);
+  let bundledContent = generateScriptHeader(meta);
 
-  for (const file of config.sourceFiles) {
+  for (const file of meta.sourceFiles) {
     const filePath = join(projectPath, file);
 
     if (!existsSync(filePath)) {
@@ -565,7 +568,7 @@ async function buildProject(project) {
   }
 
   // Write the bundled script
-  const outputFilename = `${config.name}.naiscript`;
+  const outputFilename = `${meta.name}.naiscript`;
   const outputPath = join(projectDistDir, outputFilename);
   writeFileSync(outputPath, bundledContent, "utf8");
 
@@ -696,6 +699,26 @@ function currentEpochS() {
   return Math.floor(Date.now() / 1000);
 }
 
+function generateIndexTS() {
+  return `(async () => {
+  api.v1.log("Hello World!");
+})();`;
+}
+
+function projectConfigOrDefault(srcPath) {
+  if (existsSync(srcPath)) {
+    return readFileSync(srcPath);
+  } else {
+    return yaml.stringify([
+      {
+        name: "config_1",
+        prettyName: "New Config",
+        type: "string",
+      },
+    ]);
+  }
+}
+
 // =============================================================================
 // Create new project
 // =============================================================================
@@ -707,6 +730,8 @@ function createNewProject() {
         type: "input",
         name: "name",
         message: "What will you name your script?",
+        validate: (input) => input.length > 0,
+        filter: (input) => input.toLowerCase().replaceAll(/\s+/g, "-"),
       },
       {
         type: "input",
@@ -741,17 +766,28 @@ function createNewProject() {
 
       const projectPath = join(__dirname, "projects", answers.name);
       if (!existsSync(projectPath)) {
-        mkdirSync(projectPath);
+        mkdirSync(projectPath, { recursive: true });
       } else {
         console.error("Project already exists");
         return;
       }
 
+      // Write project json
       writeFileSync(
         join(projectPath, "project.json"),
         JSON.stringify(project, null, 2),
         "utf8",
       );
+
+      // Write config yaml
+      const configPath = join(projectPath, "config.yaml");
+      writeFileSync(configPath, projectConfigOrDefault(configPath), "utf8");
+
+      // Write entry index ts
+      const indexTsPath = join(projectPath, "src", "index.ts");
+
+      mkdirSync(dirname(indexTsPath), { recursive: true });
+      writeFileSync(indexTsPath, generateIndexTS(), "utf8");
 
       console.log(`Project created at ${projectPath}`);
     });
