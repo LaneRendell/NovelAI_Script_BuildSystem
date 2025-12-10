@@ -2,6 +2,17 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [2.3.0] - 2025-12-10
+
+- **Code formatting with prettier** All source code files can be easily formatted with `npm run format`. This is a helper to improve code consistency and style.
+
+## [2.2.0] - 2025-12-09
+
+### Added
+
+- **NAIScript Output** Build system now outputs `.naiscript` bundles.
+- **Config Support** The `config.yaml` file can now be added to your projects, and will be bundled with your `.naiscript` on builds.
+
 ## [2.1.0] - 2025-12-02
 
 ### Added
@@ -100,6 +111,7 @@ const utils = {
 If you're upgrading from version 1.x:
 
 1. **Move your source files**:
+
    ```bash
    mkdir -p projects/my-script/src
    mv src/* projects/my-script/src/
@@ -107,17 +119,15 @@ If you're upgrading from version 1.x:
    ```
 
 2. **Create a project.json** (optional but recommended):
+
    ```json
    {
-       "name": "my-script",
-       "version": "1.0.0",
-       "author": "Your Name",
-       "description": "Your script description",
-       "license": "MIT",
-       "sourceFiles": [
-           "src/utils.ts",
-           "src/index.ts"
-       ]
+     "name": "my-script",
+     "version": "1.0.0",
+     "author": "Your Name",
+     "description": "Your script description",
+     "license": "MIT",
+     "sourceFiles": ["src/utils.ts", "src/index.ts"]
    }
    ```
 
