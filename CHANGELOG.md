@@ -2,6 +2,22 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [2.4.0] - 2025-01-05
+
+### Added
+
+- **Rollup Migration** Migrated build system from custom bundler to Rollup for better TypeScript compilation and bundling
+- **Simplified Build Process** Removed complex manual parsing of imports/exports and namespace generation
+- **Enhanced Error Handling** Better TypeScript error reporting during build process
+- **Streamlined Output** Built scripts now output directly to `dist/` directory with `.naiscript` extension
+
+### Changed
+
+- **Build Dependencies** Added `rollup` and `@rollup/plugin-typescript` for modern TypeScript compilation
+- **Output Structure** Scripts now output to `dist/{kebab-name}.naiscript` instead of nested project directories
+- **Source File Handling** No longer requires explicit `sourceFiles` array in `project.json` - Rollup automatically handles file resolution
+- **Header Generation** Script headers now include config.yaml content for better script metadata
+
 ## [2.3.0] - 2025-12-10
 
 - **Code formatting with prettier** All source code files can be easily formatted with `npm run format`. This is a helper to improve code consistency and style.
@@ -140,3 +156,32 @@ If you're upgrading from version 1.x:
    npm run clean
    npm run build
    ```
+
+---
+
+## Migration Guide: 2.x to 2.4
+
+If you're upgrading from version 2.x:
+
+1. **No changes required to existing projects** - All projects continue to work as before
+
+2. **Update dependencies** (optional but recommended):
+   ```bash
+   npm install
+   ```
+
+3. **Clean rebuild recommended** for best results:
+   ```bash
+   npm run clean
+   npm run build
+   ```
+
+4. **Updated output structure**:
+   - Old: `dist/<project-name>/<script-name>.ts`
+   - New: `dist/<kebab-name>.naiscript`
+   - The build system now uses kebab-case for script names (lowercase, spaces replaced with hyphens)
+
+5. **Source file handling**:
+   - No longer requires explicit `sourceFiles` array in `project.json`
+   - Rollup automatically resolves imports and builds the correct dependency order
+   - This simplifies project configuration
