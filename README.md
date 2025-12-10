@@ -222,6 +222,14 @@ You can mix both styles in the same file if needed.
 }
 ```
 
+### Coding Style and Formatting
+
+For your convenience, a formatting tool `prettier` is included to automatically format code to the common standard style for Javascript and Typescript. This tool aids in collaboration by reducing formatting friction between collaborators and presenting a readable and commonly-accepted standard of coding style. It can be invoked at any time with the package script:
+
+```bash
+npm run format
+```
+
 ## NovelAI API Reference
 
 The build system automatically downloads NovelAI type definitions. You get full IntelliSense for:
