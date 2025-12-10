@@ -67,12 +67,15 @@ NovelAI_Script_BuildSystem/
 ### Quick Start (No Configuration)
 
 1. Use the new project command:
+
    ```bash
    npm run new
    ```
+
    Answer the questions, your new project will be placed under `projects/my-script` if you name your script 'my-script'.
 
 2. Edit and add more TypeScript files:
+
    ```bash
    # Create your main script file
    touch projects/my-script/src/index.ts
@@ -91,24 +94,21 @@ Bundling incorporates metadata from a `project.json` in your project folder:
 
 ```json
 {
-    "id": "xxxxxxxx-4xxx-xxxx-xxxx-xxxxxxxxxxxxxxxx",
-    "name": "my-awesome-script",
-    "version": "1.0.0",
-    "author": "Your Name <your.email@example.com>",
-    "description": "My amazing NovelAI script",
-    "license": "MIT",
-    "sourceFiles": [
-        "src/utils.ts",
-        "src/helpers.ts",
-        "src/index.ts"
-    ],
-    "memoryLimit": 8,
-    "createdAt": 1234567890123,
-    "updatedAt": 1234567894564
+  "id": "xxxxxxxx-4xxx-xxxx-xxxx-xxxxxxxxxxxxxxxx",
+  "name": "my-awesome-script",
+  "version": "1.0.0",
+  "author": "Your Name <your.email@example.com>",
+  "description": "My amazing NovelAI script",
+  "license": "MIT",
+  "sourceFiles": ["src/utils.ts", "src/helpers.ts", "src/index.ts"],
+  "memoryLimit": 8,
+  "createdAt": 1234567890123,
+  "updatedAt": 1234567894564
 }
 ```
 
 **Fields:**
+
 - `id` - Unique ID required to update your script. Don't change.
 - `name` - Output filename (creates `dist/{name}.ts`)
 - `version` - Script version (appears in header)
@@ -122,15 +122,16 @@ Bundling incorporates metadata from a `project.json` in your project folder:
 
 ## Build Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run build` | Build all projects |
-| `npm run build -- my-script` | Build only "my-script" project |
-| `npm run build:watch` | Watch all projects and rebuild on changes |
-| `npm run build:watch -- my-script` | Watch only "my-script" |
-| `npm run typecheck` | Check for TypeScript errors |
-| `npm run clean` | Remove the dist directory |
-| `npm run help` | Show build system help |
+| Command                            | Description                               |
+| ---------------------------------- | ----------------------------------------- |
+| `npm run build`                    | Build all projects                        |
+| `npm run build -- my-script`       | Build only "my-script" project            |
+| `npm run build:watch`              | Watch all projects and rebuild on changes |
+| `npm run build:watch -- my-script` | Watch only "my-script"                    |
+| `npm run format`                   | Format source code files with prettier    |
+| `npm run typecheck`                | Check for TypeScript errors               |
+| `npm run clean`                    | Remove the dist directory                 |
+| `npm run help`                     | Show build system help                    |
 
 ## Writing Scripts with Imports
 
@@ -142,16 +143,16 @@ You can split your code across multiple files using imports/exports. The build s
 
 ```typescript
 export interface Config {
-    enabled: boolean;
-    debugMode: boolean;
+  enabled: boolean;
+  debugMode: boolean;
 }
 
 export async function saveConfig(config: Config) {
-    await api.v1.storage.set("config", config);
+  await api.v1.storage.set("config", config);
 }
 
 export function log(message: string) {
-    api.v1.log(`[MyScript] ${message}`);
+  api.v1.log(`[MyScript] ${message}`);
 }
 ```
 
@@ -162,13 +163,13 @@ import type { Config } from "./utils";
 import { saveConfig, log } from "./utils";
 
 const config: Config = {
-    enabled: true,
-    debugMode: false,
+  enabled: true,
+  debugMode: false,
 };
 
 async function init() {
-    log("Starting...");
-    await saveConfig(config);
+  log("Starting...");
+  await saveConfig(config);
 }
 
 init();
@@ -185,13 +186,13 @@ import type { Config } from "./utils";
 import * as utils from "./utils";
 
 const config: Config = {
-    enabled: true,
-    debugMode: false,
+  enabled: true,
+  debugMode: false,
 };
 
 async function init() {
-    utils.log("Starting...");
-    await utils.saveConfig(config);
+  utils.log("Starting...");
+  await utils.saveConfig(config);
 }
 
 init();
@@ -201,8 +202,8 @@ The build system automatically generates a namespace wrapper object:
 
 ```typescript
 const utils = {
-    saveConfig,
-    log
+  saveConfig,
+  log,
 };
 ```
 
@@ -214,10 +215,10 @@ You can mix both styles in the same file if needed.
 
 ```json
 {
-    "sourceFiles": [
-        "src/utils.ts",    // Dependencies first
-        "src/index.ts"     // Files that import them last
-    ]
+  "sourceFiles": [
+    "src/utils.ts", // Dependencies first
+    "src/index.ts" // Files that import them last
+  ]
 }
 ```
 
@@ -226,22 +227,26 @@ You can mix both styles in the same file if needed.
 The build system automatically downloads NovelAI type definitions. You get full IntelliSense for:
 
 ### Core APIs
+
 - **`api.v1.storage`** - Persistent key-value storage
 - **`api.v1.hooks`** - Register hooks for generation events
 - **`api.v1.log()` / `api.v1.error()`** - Logging
 
 ### Document & Editor
+
 - **`api.v1.document`** - Read and manipulate story paragraphs
 - **`api.v1.editor`** - Trigger generation, check editor state
 - **`api.v1.memory`** / **`api.v1.an`** - Story memory and author's note
 
 ### Generation & AI
+
 - **`api.v1.generate`** - Generate text with GLM 4.6
 - **`api.v1.generationParameters`** - Get/set generation parameters
 - **`api.v1.image`** - Generate images
 - **`api.v1.tokenizer`** - Encode/decode text to tokens
 
 ### Content & UI
+
 - **`api.v1.lorebook`** - Manage lorebook entries
 - **`api.v1.ui`** - Create UI extensions (buttons, panels, modals)
 - **`api.v1.commentBot`** - Control HypeBot
@@ -276,28 +281,34 @@ Located in `projects/word-counter/`, this demonstrates:
 ## Tips and Best Practices
 
 ### Use Watch Mode During Development
+
 ```bash
 npm run build:watch
 ```
+
 Auto-rebuilds when you save. Keep it running while you work!
 
 ### Debugging
+
 ```typescript
 // Use api.v1.log, not console.log
 api.v1.log("Debug:", someVariable);
 api.v1.error("Error:", error);
 ```
+
 Output appears in browser console (F12).
 
 ### Code Organization
 
 **Simple script:**
+
 ```text
 my-script/src/
 └── index.ts
 ```
 
 **Medium script:**
+
 ```text
 my-script/src/
 ├── utils.ts
@@ -305,6 +316,7 @@ my-script/src/
 ```
 
 **Complex script:**
+
 ```text
 my-script/src/
 ├── types.ts
@@ -318,17 +330,20 @@ my-script/src/
 ## Troubleshooting
 
 ### "Cannot find module" errors
+
 1. Run `npm install`
 2. Restart your TypeScript language server
 3. Run `npm run build` to download type definitions
 
 ### Type definitions not found
+
 ```bash
 rm -rf external/
 npm run build
 ```
 
 ### Script doesn't work in NovelAI
+
 1. Check browser console (F12) for errors
 2. Verify script is enabled in NovelAI
 3. Check `project.json` file order (dependencies first)
@@ -336,15 +351,19 @@ npm run build
 ## FAQ
 
 ### Can I use npm packages?
+
 No. NovelAI scripts run in the browser without npm access. Use only:
+
 - Browser-native APIs
 - The NovelAI API (`api.v1.*`)
 - Your own code
 
 ### How do I add another project?
+
 Create a new folder in `projects/` with a `src/` subdirectory containing your TypeScript files. Optionally add a `project.json` for configuration.
 
 ### Can I have just one project?
+
 Yes! Simply have one folder in `projects/`. If you want single-project simplicity, just put one project folder there.
 
 ## License
