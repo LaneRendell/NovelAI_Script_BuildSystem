@@ -15,6 +15,7 @@ import inquirer from "inquirer";
 import { randomUUID } from "crypto";
 import * as yaml from "yaml";
 import { rollup } from "rollup";
+import typescript from "@rollup/plugin-typescript";
 
 const __dirname = import.meta.dirname;
 
@@ -278,6 +279,7 @@ async function buildProject(project) {
           }
         },
       },
+      typescript(),
     ],
     onwarn(warning) {
       console.warn(warning.message);
@@ -437,13 +439,7 @@ function projectConfigOrDefault(srcPath) {
   if (existsSync(srcPath)) {
     return yaml.parse(readFileSync(srcPath).toString());
   } else {
-    return yaml.stringify([
-      {
-        name: "config_1",
-        prettyName: "New Config",
-        type: "string",
-      },
-    ]);
+    return [];
   }
 }
 
