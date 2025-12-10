@@ -39,7 +39,7 @@ This builds all projects in the `projects/` directory. Output appears in `dist/`
 
 ```text
 NovelAI_Script_BuildSystem/
-├── projects/                     # All your scripts live here
+├── examples/                     # Example scripts live here
 │   ├── example-script/           # Full-featured example with imports
 │   │   ├── project.json          # Project configuration
 │   │   └── src/
@@ -49,6 +49,7 @@ NovelAI_Script_BuildSystem/
 │       ├── project.json
 │       └── src/
 │           └── index.ts          # Word/character counting utility
+├── projects/                     # All your scripts live here
 ├── external/                     # Auto-downloaded type definitions
 │   └── script-types.d.ts
 ├── dist/                         # Build output (generated)
@@ -65,12 +66,13 @@ NovelAI_Script_BuildSystem/
 
 ### Quick Start (No Configuration)
 
-1. Create a folder in `projects/`:
+1. Use the new project command:
    ```bash
-   mkdir -p projects/my-script/src
+   npm run new
    ```
+   Answer the questions, your new project will be placed under `projects/my-script` if you name your script 'my-script'.
 
-2. Add your TypeScript files:
+2. Edit and add more TypeScript files:
    ```bash
    # Create your main script file
    touch projects/my-script/src/index.ts
@@ -83,12 +85,13 @@ NovelAI_Script_BuildSystem/
 
 The build system will auto-discover all `.ts` files in the `src/` folder and bundle them.
 
-### With Configuration (project.json)
+### Configuration (project.json)
 
-For more control, create a `project.json` in your project folder:
+Bundling incorporates metadata from a `project.json` in your project folder:
 
 ```json
 {
+    "id": "xxxxxxxx-4xxx-xxxx-xxxx-xxxxxxxxxxxxxxxx",
     "name": "my-awesome-script",
     "version": "1.0.0",
     "author": "Your Name <your.email@example.com>",
@@ -98,17 +101,24 @@ For more control, create a `project.json` in your project folder:
         "src/utils.ts",
         "src/helpers.ts",
         "src/index.ts"
-    ]
+    ],
+    "memoryLimit": 8,
+    "createdAt": 1234567890123,
+    "updatedAt": 1234567894564
 }
 ```
 
 **Fields:**
+- `id` - Unique ID required to update your script. Don't change.
 - `name` - Output filename (creates `dist/{name}.ts`)
 - `version` - Script version (appears in header)
 - `author` - Your name/email (appears in header)
 - `description` - Script description (appears in header)
 - `license` - License type
 - `sourceFiles` - **Order matters!** List dependencies before files that use them
+- `memoryLimit` - How many megabytes of in-browser local-storage memory your script can use for storage. Maximum 128.
+- `createdAt` - Timestamp of when your script was created
+- `updatedAt` - Timestamp of when script was updated. Automatically updated on builds.
 
 ## Build Commands
 

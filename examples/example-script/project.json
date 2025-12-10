@@ -1,0 +1,11 @@
+{
+  "id": "24102197-a316-472b-980f-98f0b39dc837",
+  "name": "example-script",
+  "version": "1.0.0",
+  "createdAt": 1765307235,
+  "updatedAt": 1765307235,
+  "author": "NovelAI Script Build System",
+  "description": "Example NovelAI script demonstrating the build system features",
+  "license": "MIT",
+  "sourceFiles": ["src/utils.ts", "src/index.ts"]
+}

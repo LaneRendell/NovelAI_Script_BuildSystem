@@ -1,19 +1,107 @@
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+import {
+    existsSync,
+    mkdirSync,
+    statSync,
+    writeFileSync,
+    readdirSync,
+    readFileSync,
+    watch as _watch,
+    write,
+    copyFileSync,
+    readFile,
+} from "fs";
+import { join, relative, dirname, resolve as _resolve, sep } from "path";
+import { get } from "https";
+import { program } from "commander";
+import inquirer from "inquirer";
+import { randomUUID } from "crypto";
+import * as yaml from "yaml";
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const isWatch = args.includes('--watch');
-const forceRefreshTypes = args.includes('--refresh-types');
-const projectArg = args.find(arg => !arg.startsWith('--'));
+const __dirname = import.meta.dirname;
+
+// =============================================================================
+// CLI Entry Point
+// =============================================================================
+
+// Set up commander
+program.description("NovelAI Script Build System").version("1.0.0");
+
+program
+    .command("build", { isDefault: true })
+    .argument("[project]", "Project name to build")
+    .option("-w, --watch", "Watch for changes and rebuild automatically")
+    .option(
+        "-r, --refresh-types",
+        "Force download fresh NovelAI type definitions",
+    )
+    .action(async (project, options) => {
+        if (options.help) {
+            showHelp();
+            process.exit(0);
+        }
+
+        ensureDirectories();
+
+        // If forcing a type refresh
+        if (options.refreshTypes) {
+            // Fetch external types first
+            await fetchExternalTypes(true);
+        } else {
+            // Fetch external types first
+            await fetchExternalTypes();
+        }
+
+        // Run build or watch
+        if (options.watch) {
+            watch(project).catch((err) => {
+                console.error("Watch error:", err);
+                process.exit(1);
+            });
+        } else if (project) {
+            buildOne(project)
+                .then((success) => {
+                    process.exit(success ? 0 : 1);
+                })
+                .catch((err) => {
+                    console.error("Build error:", err);
+                    process.exit(1);
+                });
+        } else {
+            buildAll()
+                .then((success) => {
+                    process.exit(success ? 0 : 1);
+                })
+                .catch((err) => {
+                    console.error("Build error:", err);
+                    process.exit(1);
+                });
+        }
+    });
+
+program.command("new").action(() => {
+    createNewProject();
+});
+
+program.addHelpText(
+    "after",
+    `Examples:
+  node build.js                    Build all projects
+  node build.js my-script          Build only "my-script" project
+  node build.js --watch            Watch and rebuild all projects
+  node build.js --watch my-script  Watch specific project
+  node build.js --refresh-types    Build with fresh type definitions`,
+);
+
+program.parse();
 
 // Ensure dist and external directories exist
-if (!fs.existsSync('dist')) {
-    fs.mkdirSync('dist', { recursive: true });
-}
-if (!fs.existsSync('external')) {
-    fs.mkdirSync('external', { recursive: true });
+function ensureDirectories() {
+    if (!existsSync("dist")) {
+        mkdirSync("dist", { recursive: true });
+    }
+    if (!existsSync("external")) {
+        mkdirSync("external", { recursive: true });
+    }
 }
 
 // =============================================================================
@@ -22,38 +110,45 @@ if (!fs.existsSync('external')) {
 
 function fetchExternalTypes(forceRefresh = false) {
     return new Promise((resolve, reject) => {
-        const url = 'https://novelai.github.io/scripting/types/script-types.d.ts';
-        const outputPath = path.join(__dirname, 'external', 'script-types.d.ts');
+        const url =
+            "https://novelai.github.io/scripting/types/script-types.d.ts";
+        const outputPath = join(__dirname, "external", "script-types.d.ts");
 
         // Check if file already exists and is less than 24 hours old (unless force refresh)
-        if (!forceRefresh && fs.existsSync(outputPath)) {
-            const stats = fs.statSync(outputPath);
+        if (!forceRefresh && existsSync(outputPath)) {
+            const stats = statSync(outputPath);
             const age = Date.now() - stats.mtimeMs;
             const hoursOld = age / (1000 * 60 * 60);
 
             if (hoursOld < 24) {
-                console.log('✓ Using cached NovelAI type definitions');
+                console.log("✓ Using cached NovelAI type definitions");
                 resolve();
                 return;
             }
         }
 
-        console.log(forceRefresh ? '📥 Force refreshing NovelAI type definitions...' : '📥 Fetching NovelAI type definitions...');
+        console.log(
+            forceRefresh
+                ? "📥 Force refreshing NovelAI type definitions..."
+                : "📥 Fetching NovelAI type definitions...",
+        );
 
-        https.get(url, (res) => {
+        get(url, (res) => {
             if (res.statusCode !== 200) {
-                reject(new Error(`Failed to fetch types: HTTP ${res.statusCode}`));
+                reject(
+                    new Error(`Failed to fetch types: HTTP ${res.statusCode}`),
+                );
                 return;
             }
 
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                fs.writeFileSync(outputPath, data, 'utf8');
-                console.log('✓ NovelAI type definitions downloaded');
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => {
+                writeFileSync(outputPath, data, "utf8");
+                console.log("✓ NovelAI type definitions downloaded");
                 resolve();
             });
-        }).on('error', reject);
+        }).on("error", reject);
     });
 }
 
@@ -65,61 +160,71 @@ function fetchExternalTypes(forceRefresh = false) {
  * Discover all projects in the projects/ directory
  */
 function discoverProjects() {
-    const projectsDir = path.join(__dirname, 'projects');
+    const projectsDir = join(__dirname, "projects");
     const projects = [];
 
-    if (!fs.existsSync(projectsDir)) {
+    if (!existsSync(projectsDir)) {
         return projects;
     }
 
-    const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+    const entries = readdirSync(projectsDir, { withFileTypes: true });
 
     for (const entry of entries) {
         if (!entry.isDirectory()) continue;
 
-        const projectPath = path.join(projectsDir, entry.name);
-        const configPath = path.join(projectPath, 'project.json');
+        const projectPath = join(projectsDir, entry.name);
+        const metaPath = join(projectPath, "project.json");
+        const configPath = join(projectPath, "config.yaml");
 
-        if (fs.existsSync(configPath)) {
+        if (existsSync(metaPath)) {
             try {
-                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                const meta = JSON.parse(readFileSync(metaPath, "utf8"));
                 projects.push({
                     name: entry.name,
                     path: projectPath,
-                    config: {
-                        name: config.name || entry.name,
-                        version: config.version || '1.0.0',
-                        author: config.author || 'Unknown',
-                        description: config.description || '',
-                        license: config.license || 'MIT',
-                        sourceFiles: config.sourceFiles || ['src/index.ts'],
-                    }
+                    meta: projectMetaDefaultWithUpdate(entry.name, meta),
+                    config: projectConfigOrDefault(configPath),
                 });
             } catch (err) {
-                console.warn(`⚠️  Invalid project.json in ${entry.name}: ${err.message}`);
+                console.warn(
+                    `⚠️  Invalid project.json in ${entry.name}: ${err.message}`,
+                );
             }
         } else {
             // Auto-discover project without project.json (use defaults)
-            const srcPath = path.join(projectPath, 'src');
-            if (fs.existsSync(srcPath)) {
-                console.log(`ℹ️  Project "${entry.name}" has no project.json, using defaults`);
+            const srcPath = join(projectPath, "src");
+            if (existsSync(srcPath)) {
+                console.log(
+                    `ℹ️  Project "${entry.name}" has no project.json, using defaults`,
+                );
                 projects.push({
                     name: entry.name,
                     path: projectPath,
-                    config: {
-                        name: entry.name,
-                        version: '1.0.0',
-                        author: 'Unknown',
-                        description: '',
-                        license: 'MIT',
+                    config: projectMetaDefaultWithUpdate(entry.name, {
                         sourceFiles: autoDiscoverSourceFiles(srcPath),
-                    }
+                    }),
                 });
             }
         }
     }
 
     return projects;
+}
+
+function projectMetaDefaultWithUpdate(name, config) {
+    return {
+        id: randomUUID(),
+        name: name,
+        version: "1.0.0",
+        createdAt: currentEpochS(),
+        author: "Unknown",
+        description: "",
+        license: "MIT",
+        sourceFiles: ["src/index.ts"],
+        memoryLimit: 8,
+        ...config, // Merge current project.json over the above defaults
+        updatedAt: currentEpochS(), // Update the updatedAt field
+    };
 }
 
 /**
@@ -129,15 +234,21 @@ function autoDiscoverSourceFiles(srcPath) {
     const files = [];
 
     function scanDir(dir, relativeTo) {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const entries = readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            const relativePath = path.relative(relativeTo, fullPath).replace(/\\/g, '/');
+            const fullPath = join(dir, entry.name);
+            const relativePath = relative(relativeTo, fullPath).replace(
+                /\\/g,
+                "/",
+            );
 
             if (entry.isDirectory()) {
                 scanDir(fullPath, relativeTo);
-            } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
-                files.push('src/' + relativePath);
+            } else if (
+                entry.name.endsWith(".ts") &&
+                !entry.name.endsWith(".d.ts")
+            ) {
+                files.push("src/" + relativePath);
             }
         }
     }
@@ -146,8 +257,8 @@ function autoDiscoverSourceFiles(srcPath) {
 
     // Sort to put index.ts last (it's usually the entry point)
     files.sort((a, b) => {
-        if (a.includes('index.ts')) return 1;
-        if (b.includes('index.ts')) return -1;
+        if (a.includes("index.ts")) return 1;
+        if (b.includes("index.ts")) return -1;
         return a.localeCompare(b);
     });
 
@@ -165,12 +276,13 @@ function autoDiscoverSourceFiles(srcPath) {
 function parseNamespaceImports(content) {
     const namespaceImports = [];
     // Match: import * as alias from "./module" or './module'
-    const regex = /^import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
+    const regex =
+        /^import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
     let match;
     while ((match = regex.exec(content)) !== null) {
         namespaceImports.push({
             alias: match[1],
-            modulePath: match[2]
+            modulePath: match[2],
         });
     }
     return namespaceImports;
@@ -222,7 +334,8 @@ function parseTypeExports(content) {
 
     // Match: export interface Name { ... }
     // Need to handle nested braces
-    const interfaceRegex = /^export\s+(interface\s+\w+(?:\s+extends\s+[^{]+)?)\s*\{/gm;
+    const interfaceRegex =
+        /^export\s+(interface\s+\w+(?:\s+extends\s+[^{]+)?)\s*\{/gm;
     let match;
     while ((match = interfaceRegex.exec(content)) !== null) {
         const startIndex = match.index;
@@ -232,22 +345,23 @@ function parseTypeExports(content) {
         let braceCount = 1;
         let i = match.index + match[0].length;
         while (i < content.length && braceCount > 0) {
-            if (content[i] === '{') braceCount++;
-            else if (content[i] === '}') braceCount--;
+            if (content[i] === "{") braceCount++;
+            else if (content[i] === "}") braceCount--;
             i++;
         }
 
-        const fullDeclaration = content.slice(startIndex + 'export '.length, i);
+        const fullDeclaration = content.slice(startIndex + "export ".length, i);
         const name = declarationStart.match(/interface\s+(\w+)/)[1];
         typeExports.push({ name, declaration: fullDeclaration });
     }
 
     // Match: export type Name = ...;
-    const typeAliasRegex = /^export\s+(type\s+(\w+)(?:<[^>]*>)?\s*=\s*[^;]+;)/gm;
+    const typeAliasRegex =
+        /^export\s+(type\s+(\w+)(?:<[^>]*>)?\s*=\s*[^;]+;)/gm;
     while ((match = typeAliasRegex.exec(content)) !== null) {
         typeExports.push({
             name: match[2],
-            declaration: match[1]
+            declaration: match[1],
         });
     }
 
@@ -260,80 +374,88 @@ function parseTypeExports(content) {
 function resolveModulePath(importPath, currentFile, projectPath) {
     // Remove ./ or ../ prefix and add .ts extension if needed
     let resolved = importPath;
-    if (!resolved.endsWith('.ts')) {
-        resolved += '.ts';
+    if (!resolved.endsWith(".ts")) {
+        resolved += ".ts";
     }
 
     // Get the directory of the current file
-    const currentDir = path.dirname(currentFile);
+    const currentDir = dirname(currentFile);
 
     // Resolve relative to current file's directory
-    const fullPath = path.resolve(projectPath, currentDir, resolved);
+    const fullPath = _resolve(projectPath, currentDir, resolved);
 
     // Return path relative to project root
-    return path.relative(projectPath, fullPath).replace(/\\/g, '/');
+    return relative(projectPath, fullPath).replace(/\\/g, "/");
 }
 
 function removeImportsExports(content) {
     // Remove import statements (including multiline imports and type imports)
-    content = content.replace(/^import\s+type\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm, '');
-    content = content.replace(/^import\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm, '');
-    content = content.replace(/^\/\/.*import.*from.*\n?/gm, '');
+    content = content.replace(
+        /^import\s+type\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm,
+        "",
+    );
+    content = content.replace(
+        /^import\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm,
+        "",
+    );
+    content = content.replace(/^\/\/.*import.*from.*\n?/gm, "");
 
     // Remove export keywords (but keep the declarations)
-    content = content.replace(/^export\s+/gm, '');
+    content = content.replace(/^export\s+/gm, "");
 
     return content;
 }
 
 function generateScriptHeader(config) {
-    return `/**
- * ${config.name}
- * Version: ${config.version}
- * Author: ${config.author}
- * Description: ${config.description}
- * License: ${config.license}
- *
+    const {
+        id,
+        name,
+        createdAt,
+        updatedAt,
+        version,
+        author,
+        license,
+        description,
+        memoryLimit,
+    } = config;
+    return `/*---
+${yaml.stringify({
+    compatibilityVersion: "naiscript-1.0",
+    id,
+    name,
+    createdAt,
+    updatedAt,
+    version,
+    author,
+    description,
+    memoryLimit,
+})}---*/
+
+/**
+ * ${name}
+ * License: ${license}
  * Built with NovelAI Script Build System
- */
-
-`;
-}
-
-function generateDistTsConfig() {
-    return JSON.stringify({
-        compilerOptions: {
-            target: "ES2020",
-            module: "ESNext",
-            lib: ["ES2020"],
-            moduleResolution: "bundler",
-            strict: false,
-            noEmit: true,
-            skipLibCheck: true,
-            typeRoots: ["../../external", "../../node_modules/@types"]
-        },
-        include: ["./*.ts", "../../external/**/*"]
-    }, null, 2);
+ */\n`;
 }
 
 async function buildProject(project) {
-    const { name, path: projectPath, config } = project;
+    const { name, path: projectPath, meta, config } = project;
 
     console.log(`\n🔨 Building project: ${name}`);
 
     // First pass: Build export maps for all source files
     const valueExportMap = new Map(); // Map<modulePath, string[]> - value exports (functions, const, etc.)
-    const typeExportMap = new Map();  // Map<modulePath, Array<{name, declaration}>> - type exports (interfaces, type aliases)
-    const rawContents = new Map();    // Map<filePath, string> - raw file contents
+    const typeExportMap = new Map(); // Map<modulePath, Array<{name, declaration}>> - type exports (interfaces, type aliases)
+    const rawContents = new Map(); // Map<filePath, string> - raw file contents
 
-    for (const file of config.sourceFiles) {
-        const filePath = path.join(projectPath, file);
+    for (const file of meta.sourceFiles) {
+        const filePath = join(projectPath, file);
 
-        if (!fs.existsSync(filePath)) {
+        if (!existsSync(filePath)) {
             continue;
         }
 
-        const content = fs.readFileSync(filePath, 'utf8');
+        const content = readFileSync(filePath, "utf8");
         rawContents.set(file, content);
 
         // Parse and store value exports (runtime) for this file
@@ -349,7 +471,7 @@ async function buildProject(project) {
     // Map<sourceFile, Array<{ alias, valueExports[], typeExports[] }>>
     const wrappersAfterFile = new Map();
 
-    for (const file of config.sourceFiles) {
+    for (const file of meta.sourceFiles) {
         const content = rawContents.get(file);
         if (!content) continue;
 
@@ -357,7 +479,11 @@ async function buildProject(project) {
 
         for (const nsImport of namespaceImports) {
             // Resolve the module path relative to the importing file
-            const resolvedPath = resolveModulePath(nsImport.modulePath, file, projectPath);
+            const resolvedPath = resolveModulePath(
+                nsImport.modulePath,
+                file,
+                projectPath,
+            );
 
             // Look up exports for this module
             const moduleValueExports = valueExportMap.get(resolvedPath) || [];
@@ -371,25 +497,33 @@ async function buildProject(project) {
 
                 const wrappers = wrappersAfterFile.get(resolvedPath);
                 // Check if we already have a wrapper for this alias
-                const existing = wrappers.find(w => w.alias === nsImport.alias);
+                const existing = wrappers.find(
+                    (w) => w.alias === nsImport.alias,
+                );
                 if (!existing) {
                     wrappers.push({
                         alias: nsImport.alias,
                         valueExports: moduleValueExports,
-                        typeExports: moduleTypeExports
+                        typeExports: moduleTypeExports,
                     });
                 }
             }
         }
     }
 
+    // Write meta with bumped updatedAt
+    writeFileSync(
+        join(project.path, "project.json"),
+        JSON.stringify(project.meta, null, 2),
+    );
+
     // Build the bundled content
-    let bundledContent = generateScriptHeader(config);
+    let bundledContent = generateScriptHeader(meta);
 
-    for (const file of config.sourceFiles) {
-        const filePath = path.join(projectPath, file);
+    for (const file of meta.sourceFiles) {
+        const filePath = join(projectPath, file);
 
-        if (!fs.existsSync(filePath)) {
+        if (!existsSync(filePath)) {
             console.warn(`⚠️  Skipping missing file: ${file}`);
             continue;
         }
@@ -404,7 +538,7 @@ async function buildProject(project) {
         bundledContent += `// ${file}\n`;
         bundledContent += `// ============================================================================\n\n`;
         bundledContent += content;
-        bundledContent += '\n';
+        bundledContent += "\n";
 
         // Generate namespace wrappers for this module (if any files import it as namespace)
         const wrappers = wrappersAfterFile.get(file);
@@ -418,9 +552,9 @@ async function buildProject(project) {
                     for (const typeExport of wrapper.typeExports) {
                         // Indent each line of the declaration
                         const indented = typeExport.declaration
-                            .split('\n')
-                            .map(line => `    ${line}`)
-                            .join('\n');
+                            .split("\n")
+                            .map((line) => `    ${line}`)
+                            .join("\n");
                         bundledContent += `    export ${indented.trimStart()}\n`;
                     }
                     bundledContent += `}\n`;
@@ -429,61 +563,60 @@ async function buildProject(project) {
                 // Generate const object for runtime values (functions, variables, etc.)
                 if (wrapper.valueExports.length > 0) {
                     bundledContent += `const ${wrapper.alias} = {\n`;
-                    bundledContent += wrapper.valueExports.map(e => `    ${e}`).join(',\n');
+                    bundledContent += wrapper.valueExports
+                        .map((e) => `    ${e}`)
+                        .join(",\n");
                     bundledContent += `\n};\n`;
                 }
-                bundledContent += '\n';
+                bundledContent += "\n";
             }
         }
     }
 
     // Create project-specific output directory
-    const projectDistDir = path.join(__dirname, 'dist', name);
-    if (!fs.existsSync(projectDistDir)) {
-        fs.mkdirSync(projectDistDir, { recursive: true });
+    const projectDistDir = join(__dirname, "dist", name);
+    if (!existsSync(projectDistDir)) {
+        mkdirSync(projectDistDir, { recursive: true });
     }
 
     // Write the bundled script
-    const outputFilename = `${config.name}.ts`;
-    const outputPath = path.join(projectDistDir, outputFilename);
-    fs.writeFileSync(outputPath, bundledContent, 'utf8');
-
-    // Write project-specific tsconfig for IDE type hints
-    const tsconfigPath = path.join(projectDistDir, 'tsconfig.json');
-    if (!fs.existsSync(tsconfigPath)) {
-        fs.writeFileSync(tsconfigPath, generateDistTsConfig(), 'utf8');
-    }
+    const outputFilename = `${meta.name}.naiscript`;
+    const outputPath = join(projectDistDir, outputFilename);
+    writeFileSync(outputPath, bundledContent, "utf8");
 
     // Show output file size
-    const stats = fs.statSync(outputPath);
+    const stats = statSync(outputPath);
     const sizeKB = (stats.size / 1024).toFixed(2);
     console.log(`✅ Built: dist/${name}/${outputFilename} (${sizeKB} KB)`);
 
     return true;
 }
 
-async function buildAll() {
-    const projectsDir = path.join(__dirname, 'projects');
+async function buildAll(forceRefreshTypes = false) {
+    const projectsDir = join(__dirname, "projects");
 
-    if (!fs.existsSync(projectsDir)) {
-        console.error('❌ No projects/ directory found.');
-        console.error('   Create a projects/ directory with subdirectories for each project.');
-        console.error('   Example: projects/my-script/src/index.ts');
+    if (!existsSync(projectsDir)) {
+        console.error("❌ No projects/ directory found.");
+        console.error(
+            "   Create a projects/ directory with subdirectories for each project.",
+        );
+        console.error("   Example: projects/my-script/src/index.ts");
         return false;
     }
-
-    // Fetch external types first
-    await fetchExternalTypes(forceRefreshTypes);
 
     const projects = discoverProjects();
 
     if (projects.length === 0) {
-        console.error('❌ No valid projects found in projects/ directory');
-        console.error('   Each project needs a src/ directory (project.json is optional)');
+        console.error("❌ No valid projects found in projects/ directory");
+        console.error(
+            "   Each project needs a src/ directory (project.json is optional)",
+        );
         return false;
     }
 
-    console.log(`\n📦 Found ${projects.length} project(s): ${projects.map(p => p.name).join(', ')}`);
+    console.log(
+        `\n📦 Found ${projects.length} project(s): ${projects.map((p) => p.name).join(", ")}`,
+    );
 
     let allSuccess = true;
     for (const project of projects) {
@@ -496,15 +629,16 @@ async function buildAll() {
 }
 
 async function buildOne(projectName) {
-    // Fetch external types first
-    await fetchExternalTypes(forceRefreshTypes);
-
     const projects = discoverProjects();
-    const project = projects.find(p => p.name === projectName || p.config.name === projectName);
+    const project = projects.find(
+        (p) => p.name === projectName || p.config.name === projectName,
+    );
 
     if (!project) {
         console.error(`❌ Project "${projectName}" not found`);
-        console.error(`   Available projects: ${projects.map(p => p.name).join(', ') || '(none)'}`);
+        console.error(
+            `   Available projects: ${projects.map((p) => p.name).join(", ") || "(none)"}`,
+        );
         return false;
     }
 
@@ -516,43 +650,51 @@ async function buildOne(projectName) {
 // =============================================================================
 
 async function watch(projectName) {
-    const projectsDir = path.join(__dirname, 'projects');
+    const projectsDir = join(__dirname, "projects");
 
-    if (!fs.existsSync(projectsDir)) {
-        console.error('❌ No projects/ directory found to watch');
+    if (!existsSync(projectsDir)) {
+        console.error("❌ No projects/ directory found to watch");
         return;
     }
 
-    console.log('👀 Watching for changes...');
+    console.log("👀 Watching for changes...");
 
     if (projectName) {
         // Watch specific project
-        const projectDir = path.join(projectsDir, projectName);
-        if (!fs.existsSync(projectDir)) {
+        const projectDir = join(projectsDir, projectName);
+        if (!existsSync(projectDir)) {
             console.error(`❌ Project "${projectName}" not found`);
             return;
         }
 
-        fs.watch(projectDir, { recursive: true }, (_eventType, filename) => {
-            if (filename && filename.endsWith('.ts')) {
-                console.log(`\n📝 ${projectName}/${filename} changed, rebuilding...`);
-                buildOne(projectName).catch(err => console.error('Build error:', err));
+        _watch(projectDir, { recursive: true }, (_eventType, filename) => {
+            if (filename && filename.endsWith(".ts")) {
+                console.log(
+                    `\n📝 ${projectName}/${filename} changed, rebuilding...`,
+                );
+                buildOne(projectName).catch((err) =>
+                    console.error("Build error:", err),
+                );
             }
         });
         console.log(`   Watching project: ${projectName}`);
     } else {
         // Watch all projects
-        fs.watch(projectsDir, { recursive: true }, (_eventType, filename) => {
-            if (filename && filename.endsWith('.ts')) {
+        _watch(projectsDir, { recursive: true }, (_eventType, filename) => {
+            if (filename && filename.endsWith(".ts")) {
                 // Extract project name from path
-                const parts = filename.split(path.sep);
+                const parts = filename.split(sep);
                 const changedProject = parts[0];
 
-                console.log(`\n📝 ${filename} changed, rebuilding ${changedProject}...`);
-                buildOne(changedProject).catch(err => console.error('Build error:', err));
+                console.log(
+                    `\n📝 ${filename} changed, rebuilding ${changedProject}...`,
+                );
+                buildOne(changedProject).catch((err) =>
+                    console.error("Build error:", err),
+                );
             }
         });
-        console.log('   Watching all projects');
+        console.log("   Watching all projects");
     }
 
     // Initial build
@@ -564,85 +706,107 @@ async function watch(projectName) {
 }
 
 // =============================================================================
-// CLI Entry Point
+// Utilities
 // =============================================================================
 
-function showHelp() {
-    console.log(`
-NovelAI Script Build System
-
-Usage:
-  node build.js [options] [project-name]
-
-Options:
-  --watch          Watch for changes and rebuild automatically
-  --refresh-types  Force download fresh NovelAI type definitions
-  --help           Show this help message
-
-Examples:
-  node build.js                    Build all projects
-  node build.js my-script          Build only "my-script" project
-  node build.js --watch            Watch and rebuild all projects
-  node build.js --watch my-script  Watch specific project
-  node build.js --refresh-types    Build with fresh type definitions
-
-Project Structure:
-  /projects/
-    /my-script/
-      /project.json       Project configuration (optional)
-      /src/
-        /index.ts         Main entry point
-        /utils.ts         Additional source files
-    /another-script/
-      /project.json
-      /src/
-        /index.ts
-  /dist/                  Built outputs
-    /my-script/
-      /my-script.ts       Ready to paste into NovelAI
-    /another-script/
-      /another-script.ts
-
-project.json format:
-  {
-    "name": "my-script",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "description": "Script description",
-    "license": "MIT",
-    "sourceFiles": [
-      "src/utils.ts",
-      "src/index.ts"
-    ]
-  }
-
-Note: If project.json is missing, source files are auto-discovered from src/
-`);
+function currentEpochS() {
+    return Math.floor(Date.now() / 1000);
 }
 
-if (args.includes('--help')) {
-    showHelp();
-    process.exit(0);
+function generateIndexTS() {
+    return `(async () => {
+  api.v1.log("Hello World!");
+})();`;
 }
 
-// Run build or watch
-if (isWatch) {
-    watch(projectArg).catch(err => {
-        console.error('Watch error:', err);
-        process.exit(1);
-    });
-} else if (projectArg) {
-    buildOne(projectArg).then(success => {
-        process.exit(success ? 0 : 1);
-    }).catch(err => {
-        console.error('Build error:', err);
-        process.exit(1);
-    });
-} else {
-    buildAll().then(success => {
-        process.exit(success ? 0 : 1);
-    }).catch(err => {
-        console.error('Build error:', err);
-        process.exit(1);
-    });
+function projectConfigOrDefault(srcPath) {
+    if (existsSync(srcPath)) {
+        return readFileSync(srcPath);
+    } else {
+        return yaml.stringify([
+            {
+                name: "config_1",
+                prettyName: "New Config",
+                type: "string",
+            },
+        ]);
+    }
+}
+
+// =============================================================================
+// Create new project
+// =============================================================================
+
+function createNewProject() {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "name",
+                message: "What will you name your script?",
+                validate: (input) => input.length > 0,
+                filter: (input) => input.toLowerCase().replaceAll(/\s+/g, "-"),
+            },
+            {
+                type: "input",
+                name: "author",
+                message: "And who is the author?",
+            },
+            {
+                type: "input",
+                name: "description",
+                message: "Write a brief description:",
+                default: "",
+            },
+            {
+                type: "input",
+                name: "license",
+                message: "What license is the script published under?",
+                default: "MIT",
+            },
+        ])
+        .then((answers) => {
+            const project = {
+                id: randomUUID(),
+                name: answers.name,
+                version: "1.0.0",
+                createdAt: currentEpochS(),
+                updatedAt: currentEpochS(),
+                author: answers.author,
+                description: answers.description,
+                license: answers.license,
+                sourceFiles: ["src/index.ts"],
+            };
+
+            const projectPath = join(__dirname, "projects", answers.name);
+            if (!existsSync(projectPath)) {
+                mkdirSync(projectPath, { recursive: true });
+            } else {
+                console.error("Project already exists");
+                return;
+            }
+
+            // Write project json
+            writeFileSync(
+                join(projectPath, "project.json"),
+                JSON.stringify(project, null, 2),
+                "utf8",
+            );
+
+            // Write config yaml
+            const configPath = join(projectPath, "config.yaml");
+            writeFileSync(
+                configPath,
+                projectConfigOrDefault(configPath),
+                "utf8",
+            );
+
+            // Write entry index ts
+            const indexTsPath = join(projectPath, "src", "index.ts");
+
+            mkdirSync(dirname(indexTsPath), { recursive: true });
+            writeFileSync(indexTsPath, generateIndexTS(), "utf8");
+
+            console.log(`Project created at ${projectPath}`);
+        });
 }
