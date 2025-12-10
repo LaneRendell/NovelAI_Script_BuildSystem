@@ -21,6 +21,7 @@
   "dependencies": {
     "commander": "^14.0.2",
     "inquirer": "^13.0.2",
+    "rollup": "^4.53.3",
     "yaml": "^2.8.2"
   }
 }

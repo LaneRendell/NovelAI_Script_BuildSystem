@@ -6,16 +6,15 @@ import {
   readdirSync,
   readFileSync,
   watch as _watch,
-  write,
-  copyFileSync,
-  readFile,
+  globSync,
 } from "fs";
-import { join, relative, dirname, resolve as _resolve, sep } from "path";
+import { join, relative, dirname, resolve, sep } from "path";
 import { get } from "https";
 import { program } from "commander";
 import inquirer from "inquirer";
 import { randomUUID } from "crypto";
 import * as yaml from "yaml";
+import { rollup } from "rollup";
 
 const __dirname = import.meta.dirname;
 
@@ -197,9 +196,8 @@ function discoverProjects() {
         projects.push({
           name: entry.name,
           path: projectPath,
-          config: projectMetaDefaultWithUpdate(entry.name, {
-            sourceFiles: autoDiscoverSourceFiles(srcPath),
-          }),
+          meta: projectMetaDefaultWithUpdate(entry.name, {}),
+          config: projectConfigOrDefault(entry.name, {}),
         });
       }
     }
@@ -217,7 +215,6 @@ function projectMetaDefaultWithUpdate(name, config) {
     author: "Unknown",
     description: "",
     license: "MIT",
-    sourceFiles: ["src/index.ts"],
     memoryLimit: 8,
     ...config, // Merge current project.json over the above defaults
     updatedAt: currentEpochS(), // Update the updatedAt field
@@ -227,176 +224,12 @@ function projectMetaDefaultWithUpdate(name, config) {
 /**
  * Auto-discover TypeScript files in a src directory
  */
-function autoDiscoverSourceFiles(srcPath) {
-  const files = [];
-
-  function scanDir(dir, relativeTo) {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
-      const relativePath = relative(relativeTo, fullPath).replace(/\\/g, "/");
-
-      if (entry.isDirectory()) {
-        scanDir(fullPath, relativeTo);
-      } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
-        files.push("src/" + relativePath);
-      }
-    }
-  }
-
-  scanDir(srcPath, srcPath);
-
-  // Sort to put index.ts last (it's usually the entry point)
-  files.sort((a, b) => {
-    if (a.includes("index.ts")) return 1;
-    if (b.includes("index.ts")) return -1;
-    return a.localeCompare(b);
-  });
-
-  return files;
-}
 
 // =============================================================================
 // Build Functions
 // =============================================================================
 
-/**
- * Parse namespace imports from content
- * Returns array of { alias: string, modulePath: string }
- */
-function parseNamespaceImports(content) {
-  const namespaceImports = [];
-  // Match: import * as alias from "./module" or './module'
-  const regex =
-    /^import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    namespaceImports.push({
-      alias: match[1],
-      modulePath: match[2],
-    });
-  }
-  return namespaceImports;
-}
-
-/**
- * Parse exported VALUE identifiers from a module's content
- * Returns array of exported names (functions, constants, classes, enums)
- * Note: interfaces and type aliases are NOT included - they don't exist at runtime
- */
-function parseValueExports(content) {
-  const exports = [];
-
-  // Match: export function name
-  const funcRegex = /^export\s+(?:async\s+)?function\s+(\w+)/gm;
-  let match;
-  while ((match = funcRegex.exec(content)) !== null) {
-    exports.push(match[1]);
-  }
-
-  // Match: export const/let/var name
-  const varRegex = /^export\s+(?:const|let|var)\s+(\w+)/gm;
-  while ((match = varRegex.exec(content)) !== null) {
-    exports.push(match[1]);
-  }
-
-  // Match: export class name
-  const classRegex = /^export\s+class\s+(\w+)/gm;
-  while ((match = classRegex.exec(content)) !== null) {
-    exports.push(match[1]);
-  }
-
-  // Match: export enum name
-  const enumRegex = /^export\s+enum\s+(\w+)/gm;
-  while ((match = enumRegex.exec(content)) !== null) {
-    exports.push(match[1]);
-  }
-
-  return exports;
-}
-
-/**
- * Parse exported TYPE declarations from a module's content
- * Returns array of { name, declaration } for interfaces and type aliases
- * These need to go in a namespace for type access via namespace.TypeName
- */
-function parseTypeExports(content) {
-  const typeExports = [];
-
-  // Match: export interface Name { ... }
-  // Need to handle nested braces
-  const interfaceRegex =
-    /^export\s+(interface\s+\w+(?:\s+extends\s+[^{]+)?)\s*\{/gm;
-  let match;
-  while ((match = interfaceRegex.exec(content)) !== null) {
-    const startIndex = match.index;
-    const declarationStart = match[1]; // "interface Name" or "interface Name extends X"
-
-    // Find the matching closing brace
-    let braceCount = 1;
-    let i = match.index + match[0].length;
-    while (i < content.length && braceCount > 0) {
-      if (content[i] === "{") braceCount++;
-      else if (content[i] === "}") braceCount--;
-      i++;
-    }
-
-    const fullDeclaration = content.slice(startIndex + "export ".length, i);
-    const name = declarationStart.match(/interface\s+(\w+)/)[1];
-    typeExports.push({ name, declaration: fullDeclaration });
-  }
-
-  // Match: export type Name = ...;
-  const typeAliasRegex = /^export\s+(type\s+(\w+)(?:<[^>]*>)?\s*=\s*[^;]+;)/gm;
-  while ((match = typeAliasRegex.exec(content)) !== null) {
-    typeExports.push({
-      name: match[2],
-      declaration: match[1],
-    });
-  }
-
-  return typeExports;
-}
-
-/**
- * Resolve a relative module path to a source file path
- */
-function resolveModulePath(importPath, currentFile, projectPath) {
-  // Remove ./ or ../ prefix and add .ts extension if needed
-  let resolved = importPath;
-  if (!resolved.endsWith(".ts")) {
-    resolved += ".ts";
-  }
-
-  // Get the directory of the current file
-  const currentDir = dirname(currentFile);
-
-  // Resolve relative to current file's directory
-  const fullPath = _resolve(projectPath, currentDir, resolved);
-
-  // Return path relative to project root
-  return relative(projectPath, fullPath).replace(/\\/g, "/");
-}
-
-function removeImportsExports(content) {
-  // Remove import statements (including multiline imports and type imports)
-  content = content.replace(
-    /^import\s+type\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm,
-    "",
-  );
-  content = content.replace(
-    /^import\s+[\s\S]*?from\s+['"].*?['"];?\s*\n?/gm,
-    "",
-  );
-  content = content.replace(/^\/\/.*import.*from.*\n?/gm, "");
-
-  // Remove export keywords (but keep the declarations)
-  content = content.replace(/^export\s+/gm, "");
-
-  return content;
-}
-
-function generateScriptHeader(config) {
+function generateScriptHeader(meta, config) {
   const {
     id,
     name,
@@ -407,7 +240,8 @@ function generateScriptHeader(config) {
     license,
     description,
     memoryLimit,
-  } = config;
+  } = meta;
+  readFileSync;
   return `/*---
 ${yaml.stringify({
   compatibilityVersion: "naiscript-1.0",
@@ -419,6 +253,7 @@ ${yaml.stringify({
   author,
   description,
   memoryLimit,
+  config,
 })}---*/
 
 /**
@@ -433,149 +268,42 @@ async function buildProject(project) {
 
   console.log(`\n🔨 Building project: ${name}`);
 
-  // First pass: Build export maps for all source files
-  const valueExportMap = new Map(); // Map<modulePath, string[]> - value exports (functions, const, etc.)
-  const typeExportMap = new Map(); // Map<modulePath, Array<{name, declaration}>> - type exports (interfaces, type aliases)
-  const rawContents = new Map(); // Map<filePath, string> - raw file contents
-
-  for (const file of meta.sourceFiles) {
-    const filePath = join(projectPath, file);
-
-    if (!existsSync(filePath)) {
-      continue;
-    }
-
-    const content = readFileSync(filePath, "utf8");
-    rawContents.set(file, content);
-
-    // Parse and store value exports (runtime) for this file
-    const valueExports = parseValueExports(content);
-    valueExportMap.set(file, valueExports);
-
-    // Parse and store type exports (compile-time) for this file
-    const typeExports = parseTypeExports(content);
-    typeExportMap.set(file, typeExports);
-  }
-
-  // Second pass: Build a map of which namespace wrappers need to be generated after each source file
-  // Map<sourceFile, Array<{ alias, valueExports[], typeExports[] }>>
-  const wrappersAfterFile = new Map();
-
-  for (const file of meta.sourceFiles) {
-    const content = rawContents.get(file);
-    if (!content) continue;
-
-    const namespaceImports = parseNamespaceImports(content);
-
-    for (const nsImport of namespaceImports) {
-      // Resolve the module path relative to the importing file
-      const resolvedPath = resolveModulePath(
-        nsImport.modulePath,
-        file,
-        projectPath,
-      );
-
-      // Look up exports for this module
-      const moduleValueExports = valueExportMap.get(resolvedPath) || [];
-      const moduleTypeExports = typeExportMap.get(resolvedPath) || [];
-
-      if (moduleValueExports.length > 0 || moduleTypeExports.length > 0) {
-        // Add wrapper to be generated after the source module
-        if (!wrappersAfterFile.has(resolvedPath)) {
-          wrappersAfterFile.set(resolvedPath, []);
-        }
-
-        const wrappers = wrappersAfterFile.get(resolvedPath);
-        // Check if we already have a wrapper for this alias
-        const existing = wrappers.find((w) => w.alias === nsImport.alias);
-        if (!existing) {
-          wrappers.push({
-            alias: nsImport.alias,
-            valueExports: moduleValueExports,
-            typeExports: moduleTypeExports,
-          });
-        }
-      }
-    }
-  }
-
-  // Write meta with bumped updatedAt
-  writeFileSync(
-    join(project.path, "project.json"),
-    JSON.stringify(project.meta, null, 2),
-  );
-
-  // Build the bundled content
-  let bundledContent = generateScriptHeader(meta);
-
-  for (const file of meta.sourceFiles) {
-    const filePath = join(projectPath, file);
-
-    if (!existsSync(filePath)) {
-      console.warn(`⚠️  Skipping missing file: ${file}`);
-      continue;
-    }
-
-    let content = rawContents.get(file);
-
-    // Remove imports and exports
-    content = removeImportsExports(content);
-
-    // Add file separator comment
-    bundledContent += `\n// ============================================================================\n`;
-    bundledContent += `// ${file}\n`;
-    bundledContent += `// ============================================================================\n\n`;
-    bundledContent += content;
-    bundledContent += "\n";
-
-    // Generate namespace wrappers for this module (if any files import it as namespace)
-    const wrappers = wrappersAfterFile.get(file);
-    if (wrappers && wrappers.length > 0) {
-      bundledContent += `// Namespace wrapper(s) for ${file}\n`;
-      for (const wrapper of wrappers) {
-        // Generate TypeScript namespace for types (interfaces, type aliases)
-        // This uses declaration merging with the const below
-        if (wrapper.typeExports.length > 0) {
-          bundledContent += `namespace ${wrapper.alias} {\n`;
-          for (const typeExport of wrapper.typeExports) {
-            // Indent each line of the declaration
-            const indented = typeExport.declaration
-              .split("\n")
-              .map((line) => `    ${line}`)
-              .join("\n");
-            bundledContent += `    export ${indented.trimStart()}\n`;
+  const bundle = await rollup({
+    input: join(projectPath, "src", "index.ts"),
+    plugins: [
+      {
+        resolveId(source, importer) {
+          if (importer) {
+            return resolve(dirname(importer), source) + ".ts";
           }
-          bundledContent += `}\n`;
-        }
+        },
+      },
+    ],
+    onwarn(warning) {
+      console.warn(warning.message);
+    },
+  });
 
-        // Generate const object for runtime values (functions, variables, etc.)
-        if (wrapper.valueExports.length > 0) {
-          bundledContent += `const ${wrapper.alias} = {\n`;
-          bundledContent += wrapper.valueExports
-            .map((e) => `    ${e}`)
-            .join(",\n");
-          bundledContent += `\n};\n`;
-        }
-        bundledContent += "\n";
-      }
-    }
-  }
-
-  // Create project-specific output directory
-  const projectDistDir = join(__dirname, "dist", name);
-  if (!existsSync(projectDistDir)) {
-    mkdirSync(projectDistDir, { recursive: true });
-  }
+  const kebabName = meta.name.toLowerCase().replaceAll(/\s+/g, "-");
+  const projectDistDir = join(__dirname, "dist");
+  const outputFilename = `${kebabName}.naiscript`;
 
   // Write the bundled script
-  const outputFilename = `${meta.name}.naiscript`;
-  const outputPath = join(projectDistDir, outputFilename);
-  writeFileSync(outputPath, bundledContent, "utf8");
+  await bundle.write({
+    dir: projectDistDir,
+    format: "esm",
+    entryFileNames: outputFilename,
+    banner() {
+      return generateScriptHeader(meta, config);
+    },
+  });
 
+  await bundle.close();
   // Show output file size
+  const outputPath = join(projectDistDir, outputFilename);
   const stats = statSync(outputPath);
   const sizeKB = (stats.size / 1024).toFixed(2);
-  console.log(`✅ Built: dist/${name}/${outputFilename} (${sizeKB} KB)`);
+  console.log(`✅ Built: dist/${outputFilename} (${sizeKB} KB)`);
 
   return true;
 }
@@ -707,7 +435,7 @@ function generateIndexTS() {
 
 function projectConfigOrDefault(srcPath) {
   if (existsSync(srcPath)) {
-    return readFileSync(srcPath);
+    return yaml.parse(readFileSync(srcPath).toString());
   } else {
     return yaml.stringify([
       {
@@ -731,7 +459,6 @@ function createNewProject() {
         name: "name",
         message: "What will you name your script?",
         validate: (input) => input.length > 0,
-        filter: (input) => input.toLowerCase().replaceAll(/\s+/g, "-"),
       },
       {
         type: "input",
@@ -761,7 +488,6 @@ function createNewProject() {
         author: answers.author,
         description: answers.description,
         license: answers.license,
-        sourceFiles: ["src/index.ts"],
       };
 
       const projectPath = join(__dirname, "projects", answers.name);
