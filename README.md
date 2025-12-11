@@ -1,6 +1,6 @@
 # NovelAI Script Build System
 
-A multi-project TypeScript build system for creating NovelAI scripts. This tool bundles multiple TypeScript files into single scripts that can be copied and pasted into the NovelAI script editor.
+A multi-project TypeScript build system for creating NovelAI scripts. This tool uses Rollup to bundle multiple TypeScript files into single scripts that can be copied and pasted into the NovelAI script editor.
 
 ## Features
 
@@ -53,10 +53,8 @@ NovelAI_Script_BuildSystem/
 ├── external/                     # Auto-downloaded type definitions
 │   └── script-types.d.ts
 ├── dist/                         # Build output (generated)
-│   ├── example-script/
-│   │   └── example-script.ts     # Built script ready for NovelAI
-│   └── word-counter/
-│       └── word-counter.ts
+│   ├── example-script.naiscript  # Built script ready for NovelAI
+│   └── word-counter.naiscript    # Built script ready for NovelAI
 ├── build.js                      # Build system
 ├── package.json                  # Node.js configuration
 └── tsconfig.json                 # TypeScript configuration
@@ -110,12 +108,11 @@ Bundling incorporates metadata from a `project.json` in your project folder:
 **Fields:**
 
 - `id` - Unique ID required to update your script. Don't change.
-- `name` - Output filename (creates `dist/{name}.ts`)
+- `name` - Output filename (creates `dist/{kebab-name}.naiscript`)
 - `version` - Script version (appears in header)
 - `author` - Your name/email (appears in header)
 - `description` - Script description (appears in header)
 - `license` - License type
-- `sourceFiles` - **Order matters!** List dependencies before files that use them
 - `memoryLimit` - How many megabytes of in-browser local-storage memory your script can use for storage. Maximum 128.
 - `createdAt` - Timestamp of when your script was created
 - `updatedAt` - Timestamp of when script was updated. Automatically updated on builds.
@@ -198,7 +195,7 @@ async function init() {
 init();
 ```
 
-The build system automatically generates a namespace wrapper object:
+The build system automatically generates a namespace wrapper object using Rollup:
 
 ```typescript
 const utils = {
@@ -208,19 +205,6 @@ const utils = {
 ```
 
 You can mix both styles in the same file if needed.
-
-### Source File Order
-
-**Important:** List files in `project.json` with dependencies first:
-
-```json
-{
-  "sourceFiles": [
-    "src/utils.ts", // Dependencies first
-    "src/index.ts" // Files that import them last
-  ]
-}
-```
 
 ### Coding Style and Formatting
 
@@ -354,7 +338,23 @@ npm run build
 
 1. Check browser console (F12) for errors
 2. Verify script is enabled in NovelAI
-3. Check `project.json` file order (dependencies first)
+3. Check that your TypeScript files compile correctly
+4. Verify that your scripts don't use unsupported browser APIs
+
+### Build errors
+
+1. Check for TypeScript syntax errors in your source files
+2. Make sure all imported files exist and have correct extensions
+3. Verify that you're using the latest version of the build system:
+   ```bash
+   npm install
+   npm run build
+   ```
+4. For Rollup-related issues, try a clean build:
+   ```bash
+   npm run clean
+   npm run build
+   ```
 
 ## FAQ
 
