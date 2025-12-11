@@ -1,13 +1,6 @@
-import {
-  existsSync,
-  mkdirSync,
-  statSync,
-  writeFileSync,
-  readdirSync,
-  readFileSync,
-  watch as _watch,
-} from "fs";
-import { join, dirname, resolve, sep } from "path";
+import { existsSync, statSync, writeFileSync, watch as _watch } from "fs";
+import fs from "fs/promises";
+import { join, sep, basename } from "path";
 import { get } from "https";
 import { program } from "commander";
 import inquirer from "inquirer";
@@ -34,8 +27,6 @@ program
     "Force download fresh NovelAI type definitions",
   )
   .action(async (project, options) => {
-    ensureDirectories();
-
     // If forcing a type refresh
     if (options.refreshTypes) {
       // Fetch external types first
@@ -88,16 +79,6 @@ program.addHelpText(
 
 program.parse();
 
-// Ensure dist and external directories exist
-function ensureDirectories() {
-  if (!existsSync("dist")) {
-    mkdirSync("dist", { recursive: true });
-  }
-  if (!existsSync("external")) {
-    mkdirSync("external", { recursive: true });
-  }
-}
-
 // =============================================================================
 // External Types Fetching
 // =============================================================================
@@ -147,84 +128,105 @@ function fetchExternalTypes(forceRefresh = false) {
 // Project Discovery
 // =============================================================================
 
+type Project = {
+  name: string;
+  path: string;
+  meta: Meta;
+};
+
+type Meta = {
+  compatibilityVersion: string;
+  id: string;
+  name: string;
+  version: string;
+  createdAt: number;
+  author: string;
+  description: string;
+  memoryLimit: number;
+  updatedAt: number;
+  config: Array<any>;
+};
+
+type LegacyMeta = Meta & {
+  sourceFiles?: Array<string>;
+  license?: string;
+};
+
 /**
  * Discover all projects in the projects/ directory
  */
-function discoverProjects() {
+async function discoverProjects(): Promise<Project[]> {
   const projectsDir = join(__dirname, "projects");
-  const projects = [] as any[];
 
-  if (!existsSync(projectsDir)) {
-    return projects;
-  }
+  await fs.mkdir(projectsDir, { recursive: true });
 
-  const entries = readdirSync(projectsDir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-
-    const projectPath = join(projectsDir, entry.name);
-    const metaPath = join(projectPath, "project.json");
-    const configPath = join(projectPath, "config.yaml");
-
-    if (existsSync(metaPath)) {
-      try {
-        const meta = JSON.parse(readFileSync(metaPath, "utf8"));
-        projects.push({
-          name: entry.name,
-          path: projectPath,
-          meta: projectMetaDefaultWithUpdate(entry.name, meta),
-          config: projectConfigOrDefault(configPath),
-        });
-      } catch (err) {
-        console.warn(
-          `⚠️  Invalid project.json in ${entry.name}: ${err.message}`,
-        );
-      }
-    } else {
-      // Auto-discover project without project.json (use defaults)
-      const srcPath = join(projectPath, "src");
-      if (existsSync(srcPath)) {
-        console.log(
-          `ℹ️  Project "${entry.name}" has no project.json, using defaults`,
-        );
-        projects.push({
-          name: entry.name,
-          path: projectPath,
-          meta: projectMetaDefaultWithUpdate(entry.name, {}),
-          config: projectConfigOrDefault(entry.name),
-        });
-      }
-    }
-  }
-
-  return projects;
+  return fs
+    .readdir(projectsDir, { withFileTypes: true })
+    .then((pdirs) =>
+      pdirs.map((pdir) => ensureProject(join(pdir.parentPath, pdir.name))),
+    )
+    .then((ps) => Promise.all(ps));
 }
 
-function projectMetaDefaultWithUpdate(name, config) {
-  return {
-    id: randomUUID(),
-    name: name,
-    version: "1.0.0",
-    createdAt: currentEpochS(),
-    author: "Unknown",
-    description: "",
-    license: "MIT",
-    memoryLimit: 8,
-    ...config, // Merge current project.json over the above defaults
-    updatedAt: currentEpochS(), // Update the updatedAt field
+const COMPAT_VERSION = "naiscript-1.0";
+async function ensureProject(projectPath: string): Promise<Project> {
+  const project: Project = {
+    name: basename(projectPath),
+    path: projectPath,
+    meta: {
+      compatibilityVersion: COMPAT_VERSION,
+      id: randomUUID(),
+      name: basename(projectPath),
+      version: "0.0.0",
+      createdAt: currentEpochS(),
+      author: "Unknown",
+      description: "",
+      memoryLimit: 8,
+      updatedAt: currentEpochS(),
+      config: [],
+    },
   };
+  // Backwards-compatibility: Read project.json and config.yaml and merge with defaults.
+  const meta = await fs
+    .readFile(join(projectPath, "project.json"))
+    .then((buf) => JSON.parse(buf.toString()) as LegacyMeta)
+    .catch(() => ({}) as LegacyMeta);
+  const config = await fs
+    .readFile(join(projectPath, "config.yaml"))
+    .then((buf) => yaml.parse(buf.toString()))
+    .catch(() => []);
+  // New project.yaml source of truth overrides the above when present.
+  const projectYaml = await fs
+    .readFile(join(projectPath, "project.yaml"))
+    .then((buf) => yaml.parse(buf.toString()) as Meta)
+    .catch(() => ({}) as Meta);
+  delete meta.sourceFiles;
+  if (meta.license) {
+    meta.description += ` License: ${meta.license}`;
+  }
+  delete meta.license;
+  project.meta = { ...project.meta, ...meta };
+  project.meta.config = config;
+  project.meta = { ...project.meta, ...projectYaml };
+  return project;
 }
 
-/**
- * Auto-discover TypeScript files in a src directory
- */
+async function checkExistingProject(projectPath: string): Promise<boolean> {
+  return Promise.any([
+    fs.access(join(projectPath, "src"), fs.constants.F_OK),
+    fs.access(join(projectPath, "project.json"), fs.constants.F_OK),
+    fs.access(join(projectPath, "project.yaml"), fs.constants.F_OK),
+    fs.access(join(projectPath, "config.yaml"), fs.constants.F_OK),
+  ])
+    .then(() => true)
+    .catch(() => false);
+}
 
 // =============================================================================
 // Build Functions
 // =============================================================================
 
-function generateScriptHeader(meta, config) {
+function generateScriptHeader(meta: Meta) {
   const {
     id,
     name,
@@ -232,11 +234,10 @@ function generateScriptHeader(meta, config) {
     updatedAt,
     version,
     author,
-    license,
     description,
     memoryLimit,
+    config,
   } = meta;
-  readFileSync;
   return `/*---
 ${yaml.stringify({
   compatibilityVersion: "naiscript-1.0",
@@ -253,15 +254,16 @@ ${yaml.stringify({
 
 /**
  * ${name}
- * License: ${license}
  * Built with NovelAI Script Build System
  */\n`;
 }
 
-async function buildProject(project) {
-  const { name, path: projectPath, meta, config } = project;
+async function buildProject(project: Project) {
+  const { name, path: projectPath, meta } = project;
 
   console.log(`\n🔨 Building project: ${name}`);
+
+  meta.updatedAt = currentEpochS();
 
   const bundle = await rollup({
     input: join(projectPath, "src", "index.ts"),
@@ -271,9 +273,8 @@ async function buildProject(project) {
     },
   });
 
-  const kebabName = meta.name.toLowerCase().replaceAll(/\s+/g, "-");
   const projectDistDir = join(__dirname, "dist");
-  const outputFilename = `${kebabName}.naiscript`;
+  const outputFilename = `${name}.naiscript`;
 
   // Write the bundled script
   await bundle.write({
@@ -281,11 +282,18 @@ async function buildProject(project) {
     format: "esm",
     entryFileNames: outputFilename,
     banner() {
-      return generateScriptHeader(meta, config);
+      return generateScriptHeader(meta);
     },
   });
 
   await bundle.close();
+
+  // Write new project.yaml file
+  try {
+    await fs.writeFile(join(projectPath, "project.yaml"), yaml.stringify(meta));
+  } catch (err) {
+    console.error(err);
+  }
   // Show output file size
   const outputPath = join(projectDistDir, outputFilename);
   const stats = statSync(outputPath);
@@ -295,7 +303,7 @@ async function buildProject(project) {
   return true;
 }
 
-async function buildAll(forceRefreshTypes = false) {
+async function buildAll() {
   const projectsDir = join(__dirname, "projects");
 
   if (!existsSync(projectsDir)) {
@@ -307,7 +315,7 @@ async function buildAll(forceRefreshTypes = false) {
     return false;
   }
 
-  const projects = discoverProjects();
+  const projects = await discoverProjects();
 
   if (projects.length === 0) {
     console.error("❌ No valid projects found in projects/ directory");
@@ -331,28 +339,33 @@ async function buildAll(forceRefreshTypes = false) {
   return allSuccess;
 }
 
-async function buildOne(projectName) {
-  const projects = discoverProjects();
-  const project = projects.find(
-    (p) => p.name === projectName || p.config.name === projectName,
-  );
-
-  if (!project) {
-    console.error(`❌ Project "${projectName}" not found`);
-    console.error(
-      `   Available projects: ${projects.map((p) => p.name).join(", ") || "(none)"}`,
+async function buildOne(projectName: string) {
+  try {
+    const projects = await discoverProjects();
+    const project = projects.find(
+      (p) => p.name === projectName || p.meta.name === projectName,
     );
+
+    if (!project) {
+      console.error(`❌ Project "${projectName}" not found`);
+      console.error(
+        `   Available projects: ${projects.map((p) => p.name).join(", ") || "(none)"}`,
+      );
+      return false;
+    }
+
+    return await buildProject(project);
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
     return false;
   }
-
-  return await buildProject(project);
 }
 
 // =============================================================================
 // Watch Mode
 // =============================================================================
 
-async function watch(projectName) {
+async function watch(projectName: string) {
   const projectsDir = join(__dirname, "projects");
 
   if (!existsSync(projectsDir)) {
@@ -410,30 +423,20 @@ async function watch(projectName) {
 // Utilities
 // =============================================================================
 
-function currentEpochS() {
-  return Math.floor(Date.now() / 1000);
-}
+const currentEpochS = () => Math.floor(Date.now() / 1000);
 
-function generateIndexTS() {
-  return `(async () => {
+const INDEX_TS_TEMPLATE = `(async () => {
   api.v1.log("Hello World!");
 })();`;
-}
 
-function projectConfigOrDefault(srcPath) {
-  if (existsSync(srcPath)) {
-    return yaml.parse(readFileSync(srcPath).toString());
-  } else {
-    return [];
-  }
-}
+const kebabCase = (name: string) => name.toLowerCase().replaceAll(/\s+/g, "-");
 
 // =============================================================================
 // Create new project
 // =============================================================================
 
-function createNewProject() {
-  inquirer
+async function createNewProject(): Promise<Project> {
+  const answers = await inquirer
     .prompt([
       {
         type: "input",
@@ -459,43 +462,39 @@ function createNewProject() {
         default: "MIT",
       },
     ])
-    .then((answers) => {
-      const project = {
-        id: randomUUID(),
-        name: answers.name,
-        version: "1.0.0",
-        createdAt: currentEpochS(),
-        updatedAt: currentEpochS(),
-        author: answers.author,
-        description: answers.description,
-        license: answers.license,
-      };
+    .then((answers) => answers);
+  const projectPath = join(__dirname, "projects", kebabCase(answers.name));
 
-      const projectPath = join(__dirname, "projects", answers.name);
-      if (!existsSync(projectPath)) {
-        mkdirSync(projectPath, { recursive: true });
-      } else {
-        console.error("Project already exists");
-        return;
-      }
+  const projectExists = await checkExistingProject(projectPath);
+  if (projectExists) {
+    console.error("Project already exists");
+    return ensureProject(projectPath);
+  }
 
-      // Write project json
-      writeFileSync(
-        join(projectPath, "project.json"),
-        JSON.stringify(project, null, 2),
-        "utf8",
-      );
+  await fs.mkdir(join(projectPath, "src"), { recursive: true });
 
-      // Write config yaml
-      const configPath = join(projectPath, "config.yaml");
-      writeFileSync(configPath, projectConfigOrDefault(configPath), "utf8");
+  const project = await ensureProject(projectPath).then((project) => {
+    project.meta.name = answers.name;
+    project.meta.author = answers.author;
+    project.meta.description =
+      answers.description + ` License: ${answers.license}`;
+    return project;
+  });
 
-      // Write entry index ts
-      const indexTsPath = join(projectPath, "src", "index.ts");
+  await Promise.all([
+    fs.writeFile(
+      join(projectPath, "project.yaml"),
+      yaml.stringify(project.meta),
+      "utf-8",
+    ),
+    fs.writeFile(
+      join(projectPath, "src", "index.ts"),
+      INDEX_TS_TEMPLATE,
+      "utf-8",
+    ),
+  ]);
 
-      mkdirSync(dirname(indexTsPath), { recursive: true });
-      writeFileSync(indexTsPath, generateIndexTS(), "utf8");
+  console.log(`Project created at ${projectPath}`);
 
-      console.log(`Project created at ${projectPath}`);
-    });
+  return project;
 }
