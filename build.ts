@@ -13,7 +13,7 @@ import { program } from "commander";
 import inquirer from "inquirer";
 import { randomUUID } from "crypto";
 import * as yaml from "yaml";
-import { InputPluginOption, rollup } from "rollup";
+import { rollup } from "rollup";
 import typescript from "@rollup/plugin-typescript";
 
 const __dirname = import.meta.dirname;
@@ -265,19 +265,7 @@ async function buildProject(project) {
 
   const bundle = await rollup({
     input: join(projectPath, "src", "index.ts"),
-    plugins: [
-      {
-        name: "simple-relative-resolver",
-        resolveId(source, importer) {
-          if (importer) {
-            return resolve(dirname(importer), source) + ".ts";
-          } else {
-            return false;
-          }
-        },
-      },
-      typescript(),
-    ],
+    plugins: [typescript()],
     onwarn(warning) {
       console.warn(warning.message);
     },

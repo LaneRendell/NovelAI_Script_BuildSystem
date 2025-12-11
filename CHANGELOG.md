@@ -2,6 +2,10 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [2.4.2] - 2025-12-11
+
+- Fix bug related to the custom simple resolver being unnecessary.
+
 ## [2.4.1] - 2025-12-11
 
 - **Typescript build.ts** Node.js supports typescript natively so long as it can be executed by stripping types. Converting to typescript allows us to find mistakes in the code and correct them.
