@@ -16,7 +16,7 @@ A multi-project TypeScript build system for creating NovelAI scripts. This tool 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Node.js](https://nodejs.org/) (v22.18 or higher)
 - npm (comes with Node.js)
 
 ### Installation
@@ -55,7 +55,7 @@ NovelAI_Script_BuildSystem/
 ├── dist/                         # Build output (generated)
 │   ├── example-script.naiscript  # Built script ready for NovelAI
 │   └── word-counter.naiscript    # Built script ready for NovelAI
-├── build.js                      # Build system
+├── build.ts                      # Build system
 ├── package.json                  # Node.js configuration
 └── tsconfig.json                 # TypeScript configuration
 ```

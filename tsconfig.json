@@ -15,7 +15,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noEmit": true,
-    "typeRoots": ["./external", "./node_modules/@types"]
+    "typeRoots": ["./external", "./node_modules/@types"],
+    "rewriteRelativeImportExtensions": true
   },
   "include": ["projects/**/*", "external/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]

@@ -6,15 +6,14 @@ import {
   readdirSync,
   readFileSync,
   watch as _watch,
-  globSync,
 } from "fs";
-import { join, relative, dirname, resolve, sep } from "path";
+import { join, dirname, resolve, sep } from "path";
 import { get } from "https";
 import { program } from "commander";
 import inquirer from "inquirer";
 import { randomUUID } from "crypto";
 import * as yaml from "yaml";
-import { rollup } from "rollup";
+import { InputPluginOption, rollup } from "rollup";
 import typescript from "@rollup/plugin-typescript";
 
 const __dirname = import.meta.dirname;
@@ -35,11 +34,6 @@ program
     "Force download fresh NovelAI type definitions",
   )
   .action(async (project, options) => {
-    if (options.help) {
-      showHelp();
-      process.exit(0);
-    }
-
     ensureDirectories();
 
     // If forcing a type refresh
@@ -85,11 +79,11 @@ program.command("new").action(() => {
 program.addHelpText(
   "after",
   `Examples:
-  node build.js                    Build all projects
-  node build.js my-script          Build only "my-script" project
-  node build.js --watch            Watch and rebuild all projects
-  node build.js --watch my-script  Watch specific project
-  node build.js --refresh-types    Build with fresh type definitions`,
+  node build.ts                    Build all projects
+  node build.ts my-script          Build only "my-script" project
+  node build.ts --watch            Watch and rebuild all projects
+  node build.ts --watch my-script  Watch specific project
+  node build.ts --refresh-types    Build with fresh type definitions`,
 );
 
 program.parse();
@@ -121,7 +115,7 @@ function fetchExternalTypes(forceRefresh = false) {
 
       if (hoursOld < 24) {
         console.log("✓ Using cached NovelAI type definitions");
-        resolve();
+        resolve(1);
         return;
       }
     }
@@ -143,7 +137,7 @@ function fetchExternalTypes(forceRefresh = false) {
       res.on("end", () => {
         writeFileSync(outputPath, data, "utf8");
         console.log("✓ NovelAI type definitions downloaded");
-        resolve();
+        resolve(1);
       });
     }).on("error", reject);
   });
@@ -158,7 +152,7 @@ function fetchExternalTypes(forceRefresh = false) {
  */
 function discoverProjects() {
   const projectsDir = join(__dirname, "projects");
-  const projects = [];
+  const projects = [] as any[];
 
   if (!existsSync(projectsDir)) {
     return projects;
@@ -198,7 +192,7 @@ function discoverProjects() {
           name: entry.name,
           path: projectPath,
           meta: projectMetaDefaultWithUpdate(entry.name, {}),
-          config: projectConfigOrDefault(entry.name, {}),
+          config: projectConfigOrDefault(entry.name),
         });
       }
     }
@@ -273,9 +267,12 @@ async function buildProject(project) {
     input: join(projectPath, "src", "index.ts"),
     plugins: [
       {
+        name: "simple-relative-resolver",
         resolveId(source, importer) {
           if (importer) {
             return resolve(dirname(importer), source) + ".ts";
+          } else {
+            return false;
           }
         },
       },
