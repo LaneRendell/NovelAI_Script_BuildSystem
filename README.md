@@ -41,12 +41,12 @@ This builds all projects in the `projects/` directory. Output appears in `dist/`
 NovelAI_Script_BuildSystem/
 ├── examples/                     # Example scripts live here
 │   ├── example-script/           # Full-featured example with imports
-│   │   ├── project.json          # Project configuration
+│   │   ├── project.yaml          # Unified project configuration
 │   │   └── src/
 │   │       ├── utils.ts          # Utility module (demonstrates exports)
 │   │       └── index.ts          # Main entry point (demonstrates imports)
 │   └── word-counter/             # Simple single-file example
-│       ├── project.json
+│       ├── project.yaml          # Unified project configuration
 │       └── src/
 │           └── index.ts          # Word/character counting utility
 ├── projects/                     # All your scripts live here
@@ -86,36 +86,36 @@ NovelAI_Script_BuildSystem/
 
 The build system will auto-discover all `.ts` files in the `src/` folder and bundle them.
 
-### Configuration (project.json)
+### Configuration (project.yaml)
 
-Bundling incorporates metadata from a `project.json` in your project folder:
+Bundling incorporates metadata from a `project.yaml` file in your project folder. This unified configuration matches the YAML frontmatter of `.naiscript` files:
 
-```json
-{
-  "id": "xxxxxxxx-4xxx-xxxx-xxxx-xxxxxxxxxxxxxxxx",
-  "name": "my-awesome-script",
-  "version": "1.0.0",
-  "author": "Your Name <your.email@example.com>",
-  "description": "My amazing NovelAI script",
-  "license": "MIT",
-  "sourceFiles": ["src/utils.ts", "src/helpers.ts", "src/index.ts"],
-  "memoryLimit": 8,
-  "createdAt": 1234567890123,
-  "updatedAt": 1234567894564
-}
+```yaml
+compatibilityVersion: naiscript-1.0
+id: xxxxxxxx-4xxx-xxxx-xxxx-xxxxxxxxxxxxxxxx
+name: my-awesome-script
+version: 1.0.0
+author: Your Name <your.email@example.com>
+description: My amazing NovelAI script
+memoryLimit: 8
+createdAt: 1234567890123
+updatedAt: 1234567894564
+config:
+  - # Custom configuration items here
 ```
 
 **Fields:**
 
+- `compatibilityVersion` - NAIScript compatibility version (always "naiscript-1.0")
 - `id` - Unique ID required to update your script. Don't change.
 - `name` - Output filename (creates `dist/{kebab-name}.naiscript`)
 - `version` - Script version (appears in header)
 - `author` - Your name/email (appears in header)
 - `description` - Script description (appears in header)
-- `license` - License type
 - `memoryLimit` - How many megabytes of in-browser local-storage memory your script can use for storage. Maximum 128.
 - `createdAt` - Timestamp of when your script was created
-- `updatedAt` - Timestamp of when script was updated. Automatically updated on builds.
+- `updatedAt` - Timestamp of when script was updated. Automatically updated on builds
+- `config` - Array of custom configuration items (replaces config.yaml)
 
 ## Build Commands
 
@@ -368,7 +368,7 @@ No. NovelAI scripts run in the browser without npm access. Use only:
 
 ### How do I add another project?
 
-Create a new folder in `projects/` with a `src/` subdirectory containing your TypeScript files. Optionally add a `project.json` for configuration.
+Use the script `npm run new`. Or you may manually create a new folder in `projects/` with a `src/` subdirectory containing your TypeScript files. Optionally add a `project.yaml` for configuration. The build system will automatically generate a `project.yaml` file on first build.
 
 ### Can I have just one project?
 
