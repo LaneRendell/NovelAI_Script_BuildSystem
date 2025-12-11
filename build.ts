@@ -436,33 +436,31 @@ const kebabCase = (name: string) => name.toLowerCase().replaceAll(/\s+/g, "-");
 // =============================================================================
 
 async function createNewProject(): Promise<Project> {
-  const answers = await inquirer
-    .prompt([
-      {
-        type: "input",
-        name: "name",
-        message: "What will you name your script?",
-        validate: (input) => input.length > 0,
-      },
-      {
-        type: "input",
-        name: "author",
-        message: "And who is the author?",
-      },
-      {
-        type: "input",
-        name: "description",
-        message: "Write a brief description:",
-        default: "",
-      },
-      {
-        type: "input",
-        name: "license",
-        message: "What license is the script published under?",
-        default: "MIT",
-      },
-    ])
-    .then((answers) => answers);
+  const answers = await inquirer.prompt([
+    {
+      type: "input",
+      name: "name",
+      message: "What will you name your script?",
+      validate: (input) => input.length > 0,
+    },
+    {
+      type: "input",
+      name: "author",
+      message: "And who is the author?",
+    },
+    {
+      type: "input",
+      name: "description",
+      message: "Write a brief description:",
+      default: "",
+    },
+    {
+      type: "input",
+      name: "license",
+      message: "What license is the script published under?",
+      default: "MIT",
+    },
+  ]);
   const projectPath = join(__dirname, "projects", kebabCase(answers.name));
 
   const projectExists = await checkExistingProject(projectPath);
