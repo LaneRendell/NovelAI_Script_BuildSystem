@@ -1,6 +1,6 @@
 {
   "name": "novelai-script-build-system",
-  "version": "2.4.1",
+  "version": "3.0.0",
   "description": "Multi-project build system for NovelAI scripts - bundles TypeScript files into single scripts",
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",

@@ -2,6 +2,19 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [3.0.0] - 2025-12-11
+
+### Added
+
+- **Unified Configuration System** Merged `project.json` and `config.yaml` into a single `project.yaml` file that matches the YAML frontmatter of `.naiscript` files
+- **Automatic Migration** Running `npm run build` will automatically generate a `project.yaml` file combining existing `project.json` and `config.yaml` configurations
+- **Enhanced Project Creation** New projects now automatically generate `project.yaml` files
+
+### Changed
+
+- **Configuration Format** All project configuration now uses YAML format instead of JSON for consistency with `.naiscript` frontmatter
+- **Configuration Fields** License information is now included in description field instead of being a separate field
+
 ## [2.4.2] - 2025-12-11
 
 - Fix bug related to the custom simple resolver being unnecessary.
@@ -193,3 +206,18 @@ If you're upgrading from version 2.x:
    - No longer requires explicit `sourceFiles` array in `project.json`
    - Rollup automatically resolves imports and builds the correct dependency order
    - This simplifies project configuration
+
+---
+
+## Migration Guide: 2.x to 3.0
+
+If you're upgrading to version 3.0 with the unified configuration system:
+
+1. **Automatic Migration** (Recommended):
+   - Run `npm run build` to automatically generate `project.yaml` files
+   - The system will combine your existing `project.json` and `config.yaml` files
+   - Verify the generated `project.yaml` contains all your configuration
+
+2. **Cleanup**:
+   - After verifying the `project.yaml` file works correctly, you should delete the old `project.json` and `config.yaml` files
+   - The `project.yaml` file supercedes the old config files.
