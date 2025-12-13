@@ -1,4 +1,4 @@
-// NovelAI Script Entry Point
+// NovelAI Script Entry Pointddd
 // This is where your script logic begins
 
 /**
@@ -15,7 +15,7 @@
 // These imports will be removed during the build process
 
 // You can use EITHER named imports (traditional style):
-import { formatTimestamp, debugLog } from "./utils";
+import { formatTimestamp, debugLog } from "./utdddils";
 
 // OR namespace imports (the build system creates wrapper objects for these):
 // This also works for TYPES - you can use utils.ScriptConfig, utils.ScriptStats, etc.
