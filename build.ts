@@ -325,9 +325,15 @@ const watchProject = (project: Project) => {
   return watch({
     ...rollupInputOptions(project),
     ...{ output: rollupOutputOptions(project) },
-  }).on("restart", () =>
-    console.log(`    Building project: ${project.name}...`),
-  );
+  }).on("event", (event) => {
+    switch (event.code) {
+      case "START":
+        console.log(`    Building project: ${project.name}...`);
+        break;
+      case "END":
+        console.log(`    Built project: ${project.name}...`);
+    }
+  });
 };
 
 // =============================================================================
