@@ -2,6 +2,12 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [3.1.0] - 2025-12-13
+
+### Added
+
+- **Enhanced Watch Mode Feedback** Watch mode now provides clearer feedback showing when builds start and complete, improving developer experience during development
+
 ## [3.0.0] - 2025-12-11
 
 ### Added
