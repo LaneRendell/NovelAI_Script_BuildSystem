@@ -1,81 +1,120 @@
-import { existsSync, statSync, writeFileSync, watch as _watch } from "fs";
-import fs from "fs/promises";
-import { join, sep, basename } from "path";
-import { get } from "https";
-import { program } from "commander";
-import inquirer from "inquirer";
-import { randomUUID } from "crypto";
-import * as yaml from "yaml";
-import { rollup } from "rollup";
 import typescript from "@rollup/plugin-typescript";
+import { program } from "commander";
+import { randomUUID } from "crypto";
+import { existsSync, statSync, writeFileSync } from "fs";
+import fs from "fs/promises";
+import { get } from "https";
+import inquirer from "inquirer";
+import { basename, join } from "path";
+import type { InputOptions, OutputOptions, RollupWatcher } from "rollup";
+import { rollup, watch } from "rollup";
+import * as yaml from "yaml";
 
 const __dirname = import.meta.dirname;
+
+type Project = {
+  name: string;
+  path: string;
+  meta: Meta;
+};
+type ProjectMap = Map<string, Project>;
+
+type Meta = {
+  compatibilityVersion: string;
+  id: string;
+  name: string;
+  version: string;
+  createdAt: number;
+  author: string;
+  description: string;
+  memoryLimit: number;
+  updatedAt: number;
+  config: Array<any>;
+};
+
+type LegacyMeta = Meta & {
+  sourceFiles?: Array<string>;
+  license?: string;
+};
 
 // =============================================================================
 // CLI Entry Point
 // =============================================================================
 
-// Set up commander
-program.description("NovelAI Script Build System").version("1.0.0");
+// Helpers
+const getProjectOrDie = (name, projects: ProjectMap) => {
+  const project = projects.get(name);
+  if (!project) {
+    console.error(`Project not found: ${name}`);
+    process.exit(1);
+  }
+  return project;
+};
 
-program
-  .command("build", { isDefault: true })
-  .argument("[project]", "Project name to build")
-  .option("-w, --watch", "Watch for changes and rebuild automatically")
-  .option(
-    "-r, --refresh-types",
-    "Force download fresh NovelAI type definitions",
-  )
-  .action(async (project, options) => {
-    // If forcing a type refresh
-    if (options.refreshTypes) {
-      // Fetch external types first
-      await fetchExternalTypes(true);
-    } else {
-      // Fetch external types first
-      await fetchExternalTypes();
+const resolveProjects = async (name: string | undefined): Promise<ProjectMap> =>
+  new Promise(async (resolve) => {
+    const projects = await discoverProjects();
+    // If a name is passed, then resolve us down to just the requested project
+    if (name) {
+      const project = getProjectOrDie(name, projects);
+      projects.clear();
+      projects.set(name, project);
     }
 
-    // Run build or watch
-    if (options.watch) {
-      watch(project).catch((err) => {
-        console.error("Watch error:", err);
-        process.exit(1);
-      });
-    } else if (project) {
-      buildOne(project)
-        .then((success) => {
-          process.exit(success ? 0 : 1);
-        })
-        .catch((err) => {
-          console.error("Build error:", err);
-          process.exit(1);
-        });
-    } else {
-      buildAll()
-        .then((success) => {
-          process.exit(success ? 0 : 1);
-        })
-        .catch((err) => {
-          console.error("Build error:", err);
-          process.exit(1);
-        });
-    }
+    console.log(
+      `\n📦 Found ${projects.size} project(s): ${[...projects.keys()].join(
+        ", ",
+      )}`,
+    );
+    resolve(projects);
   });
+
+// Set up commander
+program.description("NovelAI Script Build System").version("3.0.0");
 
 program.command("new").action(() => {
   createNewProject();
 });
 
-program.addHelpText(
-  "after",
-  `Examples:
-  node build.ts                    Build all projects
-  node build.ts my-script          Build only "my-script" project
-  node build.ts --watch            Watch and rebuild all projects
-  node build.ts --watch my-script  Watch specific project
-  node build.ts --refresh-types    Build with fresh type definitions`,
-);
+program
+  .command("build", { isDefault: true })
+  .description("Build projects")
+  .argument("[project]", "Limit build to this single project")
+  .option("-r, --refresh", "Force download fresh NovelAI type definitions")
+  .action(async (name, options) => {
+    await fetchExternalTypes(options.refresh);
+    const projects = await resolveProjects(name);
+    // Build selected projects
+    Promise.all([...projects.values()].map(buildProject))
+      .then(() => {
+        console.log(`\n✅ Build complete! Built ${projects.size} project(s)`);
+        process.exit(0);
+      })
+      .catch((err) => {
+        console.error("Build error:", err);
+        process.exit(1);
+      });
+  });
+
+program
+  .command("watch")
+  .description("Automatically watch and rebuild projects on changes.")
+  .argument("[project]", "Limit watching to this single project")
+  .option("-r, --refresh", "Force download fresh NovelAI type definitions")
+  .action(async (name, options) => {
+    await fetchExternalTypes(options.refresh);
+    const projects = await resolveProjects(name);
+    const watchers: RollupWatcher[] = [];
+    // Watch selected projects.
+    watchers.push(...[...projects.values()].map(watchProject));
+    ["SIGINT", "SIGTERM", "SIGQUIT"].forEach((signal) =>
+      process.on(signal, () => {
+        console.log(" Cleaning up, closing watchers");
+        watchers.forEach((watcher) => watcher.close());
+        process.exit(0);
+      }),
+    );
+  });
 
 program.parse();
 
@@ -128,34 +167,10 @@ function fetchExternalTypes(forceRefresh = false) {
 // Project Discovery
 // =============================================================================
 
-type Project = {
-  name: string;
-  path: string;
-  meta: Meta;
-};
-
-type Meta = {
-  compatibilityVersion: string;
-  id: string;
-  name: string;
-  version: string;
-  createdAt: number;
-  author: string;
-  description: string;
-  memoryLimit: number;
-  updatedAt: number;
-  config: Array<any>;
-};
-
-type LegacyMeta = Meta & {
-  sourceFiles?: Array<string>;
-  license?: string;
-};
-
 /**
  * Discover all projects in the projects/ directory
  */
-async function discoverProjects(): Promise<Project[]> {
+async function discoverProjects(): Promise<ProjectMap> {
   const projectsDir = join(__dirname, "projects");
 
   await fs.mkdir(projectsDir, { recursive: true });
@@ -165,7 +180,8 @@ async function discoverProjects(): Promise<Project[]> {
     .then((pdirs) =>
       pdirs.map((pdir) => ensureProject(join(pdir.parentPath, pdir.name))),
     )
-    .then((ps) => Promise.all(ps));
+    .then((ps) => Promise.all(ps))
+    .then((ps) => new Map(ps.map((p) => [p.name, p])));
 }
 
 const COMPAT_VERSION = "naiscript-1.0";
@@ -258,166 +274,67 @@ ${yaml.stringify({
  */\n`;
 }
 
+const rollupInputOptions = (project: Project): InputOptions => ({
+  input: join(project.path, "src", "index.ts"),
+  plugins: [typescript()],
+  onwarn(warning) {
+    console.warn(warning.message);
+  },
+});
+
+const rollupOutputOptions = (project: Project): OutputOptions => ({
+  dir: join(__dirname, "dist"),
+  format: "esm",
+  entryFileNames: `${project.name}.naiscript`,
+  banner() {
+    return generateScriptHeader(project.meta);
+  },
+});
+
 async function buildProject(project: Project) {
-  const { name, path: projectPath, meta } = project;
+  const { name, path, meta } = project;
 
   console.log(`\n🔨 Building project: ${name}`);
 
   meta.updatedAt = currentEpochS();
 
-  const bundle = await rollup({
-    input: join(projectPath, "src", "index.ts"),
-    plugins: [typescript()],
-    onwarn(warning) {
-      console.warn(warning.message);
-    },
-  });
-
-  const projectDistDir = join(__dirname, "dist");
-  const outputFilename = `${name}.naiscript`;
-
-  // Write the bundled script
-  await bundle.write({
-    dir: projectDistDir,
-    format: "esm",
-    entryFileNames: outputFilename,
-    banner() {
-      return generateScriptHeader(meta);
-    },
-  });
-
-  await bundle.close();
-
-  // Write new project.yaml file
-  try {
-    await fs.writeFile(join(projectPath, "project.yaml"), yaml.stringify(meta));
-  } catch (err) {
-    console.error(err);
-  }
-  // Show output file size
-  const outputPath = join(projectDistDir, outputFilename);
-  const stats = statSync(outputPath);
-  const sizeKB = (stats.size / 1024).toFixed(2);
-  console.log(`✅ Built: dist/${outputFilename} (${sizeKB} KB)`);
-
-  return true;
-}
-
-async function buildAll() {
-  const projectsDir = join(__dirname, "projects");
-
-  if (!existsSync(projectsDir)) {
-    console.error("❌ No projects/ directory found.");
-    console.error(
-      "   Create a projects/ directory with subdirectories for each project.",
-    );
-    console.error("   Example: projects/my-script/src/index.ts");
-    return false;
-  }
-
-  const projects = await discoverProjects();
-
-  if (projects.length === 0) {
-    console.error("❌ No valid projects found in projects/ directory");
-    console.error(
-      "   Each project needs a src/ directory (project.json is optional)",
-    );
-    return false;
-  }
-
-  console.log(
-    `\n📦 Found ${projects.length} project(s): ${projects.map((p) => p.name).join(", ")}`,
+  await rollup(rollupInputOptions(project)).then((bundle) =>
+    bundle.write(rollupOutputOptions(project)).then(() => bundle.close()),
   );
 
-  let allSuccess = true;
-  for (const project of projects) {
-    const success = await buildProject(project);
-    if (!success) allSuccess = false;
-  }
+  // Write new project.yaml file
+  await fs
+    .writeFile(join(path, "project.yaml"), yaml.stringify(meta))
+    .catch(console.error);
 
-  console.log(`\n✅ Build complete! Built ${projects.length} project(s)`);
-  return allSuccess;
-}
+  // Show output file size
+  const outputPath = join(join(__dirname, "dist"), `${name}.naiscript`);
+  const stats = await fs.stat(outputPath);
+  const sizeKB = (stats.size / 1024).toFixed(2);
+  console.log(`✅ Built: dist/${name}.naiscript (${sizeKB} KB)`);
 
-async function buildOne(projectName: string) {
-  try {
-    const projects = await discoverProjects();
-    const project = projects.find(
-      (p) => p.name === projectName || p.meta.name === projectName,
-    );
-
-    if (!project) {
-      console.error(`❌ Project "${projectName}" not found`);
-      console.error(
-        `   Available projects: ${projects.map((p) => p.name).join(", ") || "(none)"}`,
-      );
-      return false;
-    }
-
-    return await buildProject(project);
-  } catch (error) {
-    console.error(`❌ ${error.message}`);
-    return false;
-  }
+  return true;
 }
 
 // =============================================================================
 // Watch Mode
 // =============================================================================
 
-async function watch(projectName: string) {
-  const projectsDir = join(__dirname, "projects");
-
-  if (!existsSync(projectsDir)) {
-    console.error("❌ No projects/ directory found to watch");
-    return;
-  }
-
-  console.log("👀 Watching for changes...");
-
-  if (projectName) {
-    // Watch specific project
-    const projectDir = join(projectsDir, projectName);
-    if (!existsSync(projectDir)) {
-      console.error(`❌ Project "${projectName}" not found`);
-      return;
+const watchProject = (project: Project) => {
+  console.log(`    Watching project: ${project.name}`);
+  return watch({
+    ...rollupInputOptions(project),
+    ...{ output: rollupOutputOptions(project) },
+  }).on("event", (event) => {
+    switch (event.code) {
+      case "START":
+        console.log(`    Building project: ${project.name}...`);
+        break;
+      case "END":
+        console.log(`    Built project: ${project.name}...`);
     }
-
-    _watch(projectDir, { recursive: true }, (_eventType, filename) => {
-      if (filename && filename.endsWith(".ts")) {
-        console.log(`\n📝 ${projectName}/${filename} changed, rebuilding...`);
-        buildOne(projectName).catch((err) =>
-          console.error("Build error:", err),
-        );
-      }
-    });
-    console.log(`   Watching project: ${projectName}`);
-  } else {
-    // Watch all projects
-    _watch(projectsDir, { recursive: true }, (_eventType, filename) => {
-      if (filename && filename.endsWith(".ts")) {
-        // Extract project name from path
-        const parts = filename.split(sep);
-        const changedProject = parts[0];
-
-        console.log(
-          `\n📝 ${filename} changed, rebuilding ${changedProject}...`,
-        );
-        buildOne(changedProject).catch((err) =>
-          console.error("Build error:", err),
-        );
-      }
-    });
-    console.log("   Watching all projects");
-  }
-
-  // Initial build
-  if (projectName) {
-    await buildOne(projectName);
-  } else {
-    await buildAll();
-  }
-}
+  });
+};
 
 // =============================================================================
 // Utilities

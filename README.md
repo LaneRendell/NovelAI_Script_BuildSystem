@@ -130,6 +130,10 @@ config:
 | `npm run clean`                    | Remove the dist directory                 |
 | `npm run help`                     | Show build system help                    |
 
+## Version 3.1.0
+
+- Enhanced watch mode with better feedback, showing when builds start and complete
+
 ## Writing Scripts with Imports
 
 You can split your code across multiple files using imports/exports. The build system removes all module syntax in the final output.
