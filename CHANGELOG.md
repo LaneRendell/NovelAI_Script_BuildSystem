@@ -2,6 +2,12 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [3.2.0] - 2025-12-21
+
+### Fixed
+
+- **Changes to project.yaml trigger watcher builds** Now if you're adding configuration to your `project.yaml` or making any other changes, `npm run build:watch` will automatically rebuild your project, including updates in the frontmatter of the `.naiscript` output.
+
 ## [3.1.0] - 2025-12-13
 
 ### Added

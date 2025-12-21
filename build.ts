@@ -243,40 +243,26 @@ async function checkExistingProject(projectPath: string): Promise<boolean> {
 // =============================================================================
 
 function generateScriptHeader(meta: Meta) {
-  const {
-    id,
-    name,
-    createdAt,
-    updatedAt,
-    version,
-    author,
-    description,
-    memoryLimit,
-    config,
-  } = meta;
   return `/*---
-${yaml.stringify({
-  compatibilityVersion: "naiscript-1.0",
-  id,
-  name,
-  createdAt,
-  updatedAt,
-  version,
-  author,
-  description,
-  memoryLimit,
-  config,
-})}---*/
+${yaml.stringify({ ...meta, compatibilityVersion: "naiscript-1.0" })}---*/
 
 /**
- * ${name}
+ * ${meta.name}
  * Built with NovelAI Script Build System
  */\n`;
 }
 
 const rollupInputOptions = (project: Project): InputOptions => ({
   input: join(project.path, "src", "index.ts"),
-  plugins: [typescript()],
+  plugins: [
+    {
+      name: "watch-project-yaml",
+      buildStart() {
+        this.addWatchFile(join(project.path, "project.yaml"));
+      },
+    },
+    typescript(),
+  ],
   onwarn(warning) {
     console.warn(warning.message);
   },
@@ -325,12 +311,28 @@ const watchProject = (project: Project) => {
   return watch({
     ...rollupInputOptions(project),
     ...{ output: rollupOutputOptions(project) },
-  }).on("event", (event) => {
+  }).on("event", async (event) => {
+    const currentProjectFile = await fs.readFile(
+      join(project.path, "project.yaml"),
+    );
+    const currentProjectMeta = yaml.parse(
+      currentProjectFile.toString(),
+    ) as Meta;
+    currentProjectMeta.updatedAt = currentEpochS();
+
     switch (event.code) {
       case "START":
         console.log(`    Building project: ${project.name}...`);
+        project.meta = currentProjectMeta;
         break;
       case "END":
+        // Write new project.yaml file
+        await fs
+          .writeFile(
+            join(project.path, "project.yaml"),
+            yaml.stringify(currentProjectMeta),
+          )
+          .catch(console.error);
         console.log(`    Built project: ${project.name}...`);
     }
   });
