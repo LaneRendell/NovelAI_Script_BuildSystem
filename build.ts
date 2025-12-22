@@ -9,13 +9,14 @@ import { basename, join } from "path";
 import type { InputOptions, OutputOptions, RollupWatcher } from "rollup";
 import { rollup, watch } from "rollup";
 import * as yaml from "yaml";
+import { Document } from "yaml";
 
 const __dirname = import.meta.dirname;
 
 type Project = {
   name: string;
   path: string;
-  meta: Meta;
+  meta: Document;
 };
 type ProjectMap = Map<string, Project>;
 
@@ -184,12 +185,20 @@ async function discoverProjects(): Promise<ProjectMap> {
     .then((ps) => new Map(ps.map((p) => [p.name, p])));
 }
 
-const COMPAT_VERSION = "naiscript-1.0";
-async function ensureProject(projectPath: string): Promise<Project> {
-  const project: Project = {
-    name: basename(projectPath),
-    path: projectPath,
-    meta: {
+function newDocumentFromLegacyMeta(
+  projectPath: string,
+  meta: LegacyMeta,
+): Document {
+  if (meta) {
+    delete meta.sourceFiles;
+    if (meta.license) {
+      meta.description += ` License: ${meta.license}`;
+    }
+    delete meta.license;
+  }
+
+  return new Document({
+    ...{
       compatibilityVersion: COMPAT_VERSION,
       id: randomUUID(),
       name: basename(projectPath),
@@ -201,30 +210,28 @@ async function ensureProject(projectPath: string): Promise<Project> {
       updatedAt: currentEpochS(),
       config: [],
     },
-  };
+    ...(meta ? meta : {}),
+  });
+}
+
+const COMPAT_VERSION = "naiscript-1.0";
+async function ensureProject(projectPath: string): Promise<Project> {
   // Backwards-compatibility: Read project.json and config.yaml and merge with defaults.
-  const meta = await fs
+  const legacyMeta = await fs
     .readFile(join(projectPath, "project.json"))
-    .then((buf) => JSON.parse(buf.toString()) as LegacyMeta)
-    .catch(() => ({}) as LegacyMeta);
-  const config = await fs
-    .readFile(join(projectPath, "config.yaml"))
-    .then((buf) => yaml.parse(buf.toString()))
-    .catch(() => []);
+    .then((buf) => JSON.parse(buf.toString()) as LegacyMeta);
+
   // New project.yaml source of truth overrides the above when present.
-  const projectYaml = await fs
+  const projectYamlDocument = await fs
     .readFile(join(projectPath, "project.yaml"))
-    .then((buf) => yaml.parse(buf.toString()) as Meta)
-    .catch(() => ({}) as Meta);
-  delete meta.sourceFiles;
-  if (meta.license) {
-    meta.description += ` License: ${meta.license}`;
-  }
-  delete meta.license;
-  project.meta = { ...project.meta, ...meta };
-  project.meta.config = config;
-  project.meta = { ...project.meta, ...projectYaml };
-  return project;
+    .then((buf) => yaml.parseDocument(buf.toString()))
+    .catch(() => newDocumentFromLegacyMeta(projectPath, legacyMeta));
+
+  return {
+    name: basename(projectPath),
+    path: projectPath,
+    meta: projectYamlDocument,
+  };
 }
 
 async function checkExistingProject(projectPath: string): Promise<boolean> {
@@ -242,12 +249,12 @@ async function checkExistingProject(projectPath: string): Promise<boolean> {
 // Build Functions
 // =============================================================================
 
-function generateScriptHeader(meta: Meta) {
+function generateScriptHeader(meta: Document) {
   return `/*---
-${yaml.stringify({ ...meta, compatibilityVersion: "naiscript-1.0" })}---*/
+${meta.toString()}---*/
 
 /**
- * ${meta.name}
+ * ${meta.get("name")}
  * Built with NovelAI Script Build System
  */\n`;
 }
@@ -282,7 +289,7 @@ async function buildProject(project: Project) {
 
   console.log(`\n🔨 Building project: ${name}`);
 
-  meta.updatedAt = currentEpochS();
+  meta.set("updatedAt", currentEpochS());
 
   await rollup(rollupInputOptions(project)).then((bundle) =>
     bundle.write(rollupOutputOptions(project)).then(() => bundle.close()),
@@ -290,7 +297,10 @@ async function buildProject(project: Project) {
 
   // Write new project.yaml file
   await fs
-    .writeFile(join(path, "project.yaml"), yaml.stringify(meta))
+    .writeFile(
+      join(path, "project.yaml"),
+      yaml.stringify(meta, { blockQuote: "literal" }),
+    )
     .catch(console.error);
 
   // Show output file size
@@ -315,10 +325,10 @@ const watchProject = (project: Project) => {
     const currentProjectFile = await fs.readFile(
       join(project.path, "project.yaml"),
     );
-    const currentProjectMeta = yaml.parse(
+    const currentProjectMeta = yaml.parseDocument(
       currentProjectFile.toString(),
-    ) as Meta;
-    currentProjectMeta.updatedAt = currentEpochS();
+    );
+    currentProjectMeta.set("updatedAt", currentEpochS());
 
     switch (event.code) {
       case "START":
@@ -330,7 +340,7 @@ const watchProject = (project: Project) => {
         await fs
           .writeFile(
             join(project.path, "project.yaml"),
-            yaml.stringify(currentProjectMeta),
+            currentProjectMeta.toString(),
           )
           .catch(console.error);
         console.log(`    Built project: ${project.name}...`);
@@ -391,10 +401,12 @@ async function createNewProject(): Promise<Project> {
   await fs.mkdir(join(projectPath, "src"), { recursive: true });
 
   const project = await ensureProject(projectPath).then((project) => {
-    project.meta.name = answers.name;
-    project.meta.author = answers.author;
-    project.meta.description =
-      answers.description + ` License: ${answers.license}`;
+    project.meta.set("name", answers.name);
+    project.meta.set("author", answers.author);
+    project.meta.set(
+      "description",
+      answers.description + ` License: ${answers.license}`,
+    );
     return project;
   });
 

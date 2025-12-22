@@ -2,6 +2,12 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [3.2.1] - 2025-12-22
+
+### Fixed
+
+- **YAML Document Preserves block scalars exactly (|)** Previously because the YAML document was being transformed into JSON, the interpretation of various block scalar styles would vary depending on the number of newlines in your scalar, tending towards the `>-` (folded, strip) style even if your original configuration used the `|` (literal) style. Now we preserve a YAML document object throughout the code path, which preserves the YAML AST and properties like the scalar style. Folded style might not preserve, but the `|` (literal) and `|-` (literal, strip) style will stay.
+
 ## [3.2.0] - 2025-12-21
 
 ### Fixed
