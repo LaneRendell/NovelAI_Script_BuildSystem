@@ -125,7 +125,7 @@ program.parse();
 
 function fetchExternalTypes(forceRefresh = false) {
   return new Promise((resolve, reject) => {
-    const url = "http://novelai.net/scripting/types/script-types.d.ts";
+    const url = "https://novelai.net/scripting/types/script-types.d.ts";
     const outputPath = join(__dirname, "external", "script-types.d.ts");
 
     // Check if file already exists and is less than 24 hours old (unless force refresh)
