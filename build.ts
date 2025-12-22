@@ -187,7 +187,7 @@ async function discoverProjects(): Promise<ProjectMap> {
 
 function newDocumentFromLegacyMeta(
   projectPath: string,
-  meta: LegacyMeta,
+  meta: LegacyMeta | undefined,
 ): Document {
   if (meta) {
     delete meta.sourceFiles;
@@ -216,16 +216,22 @@ function newDocumentFromLegacyMeta(
 
 const COMPAT_VERSION = "naiscript-1.0";
 async function ensureProject(projectPath: string): Promise<Project> {
-  // Backwards-compatibility: Read project.json and config.yaml and merge with defaults.
+  // Backwards-compatibility: Read project.json.
   const legacyMeta = await fs
     .readFile(join(projectPath, "project.json"))
-    .then((buf) => JSON.parse(buf.toString()) as LegacyMeta);
+    .then((buf) => JSON.parse(buf.toString()) as LegacyMeta)
+    .catch(() => undefined);
 
   // New project.yaml source of truth overrides the above when present.
   const projectYamlDocument = await fs
     .readFile(join(projectPath, "project.yaml"))
     .then((buf) => yaml.parseDocument(buf.toString()))
     .catch(() => newDocumentFromLegacyMeta(projectPath, legacyMeta));
+
+  await fs.writeFile(
+    join(projectPath, "project.yaml"),
+    projectYamlDocument.toString(),
+  );
 
   return {
     name: basename(projectPath),
@@ -239,7 +245,6 @@ async function checkExistingProject(projectPath: string): Promise<boolean> {
     fs.access(join(projectPath, "src"), fs.constants.F_OK),
     fs.access(join(projectPath, "project.json"), fs.constants.F_OK),
     fs.access(join(projectPath, "project.yaml"), fs.constants.F_OK),
-    fs.access(join(projectPath, "config.yaml"), fs.constants.F_OK),
   ])
     .then(() => true)
     .catch(() => false);
@@ -268,7 +273,7 @@ const rollupInputOptions = (project: Project): InputOptions => ({
         this.addWatchFile(join(project.path, "project.yaml"));
       },
     },
-    typescript(),
+    typescript({ exclude: ["external/"] }),
   ],
   onwarn(warning) {
     console.warn(warning.message);
@@ -297,10 +302,7 @@ async function buildProject(project: Project) {
 
   // Write new project.yaml file
   await fs
-    .writeFile(
-      join(path, "project.yaml"),
-      yaml.stringify(meta, { blockQuote: "literal" }),
-    )
+    .writeFile(join(path, "project.yaml"), yaml.stringify(meta))
     .catch(console.error);
 
   // Show output file size

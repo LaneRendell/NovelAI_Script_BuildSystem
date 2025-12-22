@@ -1,0 +1,16 @@
+compatibilityVersion: naiscript-1.0
+id: 24102197-a316-472b-980f-98f0b39dc837
+name: example-script
+version: 1.0.0
+createdAt: 1765307235
+author: NovelAI Script Build System
+description: "Example NovelAI script demonstrating the build system features License: MIT"
+memoryLimit: 8
+updatedAt: 1766415238
+config:
+  - name: test
+    description: |-
+      A really long description A really long description A really long description A really long description A really long description
+      A really long description
+      A really long description
+      A really long description

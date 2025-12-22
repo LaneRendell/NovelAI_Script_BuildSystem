@@ -2,6 +2,12 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [3.2.2] - 2025-12-22
+
+### Fixed
+
+- **Missing project.json would crash build**
+
 ## [3.2.1] - 2025-12-22
 
 ### Fixed
