@@ -8,6 +8,9 @@ All notable changes to the NovelAI Script Build System will be documented in thi
 
 - **YAML Document Preserves block scalars exactly (|)** Previously because the YAML document was being transformed into JSON, the interpretation of various block scalar styles would vary depending on the number of newlines in your scalar, tending towards the `>-` (folded, strip) style even if your original configuration used the `|` (literal) style. Now we preserve a YAML document object throughout the code path, which preserves the YAML AST and properties like the scalar style. Folded style might not preserve, but the `|` (literal) and `|-` (literal, strip) style will stay.
 
+### Removed
+- **`config.yaml` file ingestion** The config yaml file was only briefly supported, and I can't actually find a version of the code where it was the canonical form to place configuration. To simplify the code for this change, `config.yaml` read was removed. If you have a `config.yaml` file, please manually copy it into your `project.yaml` going forward.
+
 ## [3.2.0] - 2025-12-21
 
 ### Fixed
