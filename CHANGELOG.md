@@ -2,6 +2,52 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.0.0] - 2025-12-23
+
+### Added
+
+- **CLI Tool Distribution**: Rewritten as a standalone CLI tool (`nibs-cli`) for greater flexibility, distribution and portability
+- **Global Installation**: Users can now install globally with `npm install -g nibs-cli` and use commands like `nibs build`, `nibs watch`, `nibs new`
+- **Single-Project Focus**: Each project is now managed independently in its own repository instead of multiple projects in one repo
+- **Simplified Project Structure**: Projects now have a flat structure with `src/`, `project.yaml`, and `dist/` directories
+
+### Changed
+
+- **Distribution Method**: From npm-run-script based to standalone CLI tool
+- **Project Organization**: No longer supports building from `projects/` folder - each script should be in its own repository
+- **Default Command**: `nibs build` is now the default command when running `nibs` in a project directory
+- **Version Bump**: Major version bump to 4.0.0 due to breaking changes in workflow and project structure
+
+### Migration Guide: 3.x to 4.0
+
+If you're upgrading to version 4.0 with the CLI-based system:
+
+1. **Install the CLI Tool**:
+   ```bash
+   npm install -g nibs-cli
+   ```
+
+2. **Move Your Projects**:
+   - Extract your projects from the old `projects/` folder
+   - Put each project in its own folder
+   - Each project should contain: `src/`, `project.yaml`, and `tsconfig.json`
+   
+3. **Update Your Workflow**:
+   - Old: `npm run build -- my-project`
+   - New: `cd my-project && nibs build`
+   - Old: `npm run build:watch -- my-project`
+   - New: `cd my-project && nibs watch`
+
+4. **Legacy Users**:
+   If you're a legacy user with projects in the old `projects/` folder:
+   ```bash
+   cd projects/my-project
+   nibs build
+   ```
+   Or simply move your projects out of this project's folder and into their own folders.
+
+---
+
 ## [3.2.3] - 2025-12-22
 
 ### Fixed

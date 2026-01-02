@@ -1,87 +1,76 @@
 # NovelAI Script Build System
 
-A multi-project TypeScript build system for creating NovelAI scripts. This tool uses Rollup to bundle multiple TypeScript files into single scripts that can be copied and pasted into the NovelAI script editor.
+A CLI tool for building NovelAI scripts from TypeScript files. This tool uses Rollup to bundle multiple TypeScript files into single scripts that can be copied and pasted into the NovelAI script editor.
 
 ## Features
 
-- **Multi-Project Support**: Manage multiple scripts in one repository
-- **Modular Development**: Write each script across multiple TypeScript files with imports/exports
+- **Standalone CLI Tool**: Install globally and use anywhere
+- **Modular Development**: Write scripts across multiple TypeScript files with imports/exports
 - **Automatic Type Definitions**: Fetches the latest NovelAI API types automatically
 - **Type Safety**: Full TypeScript support with IntelliSense and type checking
 - **Watch Mode**: Automatic rebuilds when files change during development
-- **Auto-Discovery**: Projects without `project.json` are auto-discovered from their `src/` folder
 - **Single File Output**: Each project bundles into one script with no external dependencies
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v22.18 or higher)
+- [Node.js](https://nodejs.org/) (v18 or higher)
 - npm (comes with Node.js)
 
 ### Installation
 
 ```bash
-git clone https://github.com/LaneRendell/NovelAI_Script_BuildSystem
-cd NovelAI_Script_BuildSystem
-npm install
+npm install -g nibs-cli
 ```
 
 ### Your First Build
 
 ```bash
-npm run build
+nibs build
 ```
 
-This builds all projects in the `projects/` directory. Output appears in `dist/`.
+This builds the current project. Output appears in `dist/`.
 
 ## Project Structure
 
 ```text
-NovelAI_Script_BuildSystem/
-├── examples/                     # Example scripts live here
-│   ├── example-script/           # Full-featured example with imports
-│   │   ├── project.yaml          # Unified project configuration
-│   │   └── src/
-│   │       ├── utils.ts          # Utility module (demonstrates exports)
-│   │       └── index.ts          # Main entry point (demonstrates imports)
-│   └── word-counter/             # Simple single-file example
-│       ├── project.yaml          # Unified project configuration
-│       └── src/
-│           └── index.ts          # Word/character counting utility
-├── projects/                     # All your scripts live here
-├── external/                     # Auto-downloaded type definitions
+my-novelai-script/
+├── src/                        # Your TypeScript files
+│   ├── index.ts               # Main entry point
+│   └── utils.ts               # Utility modules
+├── project.yaml               # Project configuration
+├── tsconfig.json              # TypeScript configuration
+├── dist/                      # Build output (generated)
+│   └── my-script.naiscript    # Built script ready for NovelAI
+├── external/                  # Auto-downloaded type definitions
 │   └── script-types.d.ts
-├── dist/                         # Build output (generated)
-│   ├── example-script.naiscript  # Built script ready for NovelAI
-│   └── word-counter.naiscript    # Built script ready for NovelAI
-├── build.ts                      # Build system
-├── package.json                  # Node.js configuration
-└── tsconfig.json                 # TypeScript configuration
+└── package.json               # Optional (for your own development dependencies such as prettier formatter)
 ```
 
 ## Creating a New Project
 
 ### Quick Start (No Configuration)
 
-1. Use the new project command:
+1. Use the new command:
 
    ```bash
-   npm run new
+   nibs new my-script
    ```
 
-   Answer the questions, your new project will be placed under `projects/my-script` if you name your script 'my-script'.
+   This will create a new project in `my-script/` directory with the basic structure.
 
-2. Edit and add more TypeScript files:
+2. Edit your TypeScript files:
 
    ```bash
-   # Create your main script file
-   touch projects/my-script/src/index.ts
+   # Edit the main script file
+   my-script/src/index.ts
    ```
 
 3. Build:
    ```bash
-   npm run build
+   cd my-script
+   nibs build
    ```
 
 The build system will auto-discover all `.ts` files in the `src/` folder and bundle them.
@@ -117,18 +106,14 @@ config:
 - `updatedAt` - Timestamp of when script was updated. Automatically updated on builds
 - `config` - Array of custom configuration items (replaces config.yaml)
 
-## Build Commands
+## CLI Commands
 
-| Command                            | Description                               |
-| ---------------------------------- | ----------------------------------------- |
-| `npm run build`                    | Build all projects                        |
-| `npm run build -- my-script`       | Build only "my-script" project            |
-| `npm run build:watch`              | Watch all projects and rebuild on changes |
-| `npm run build:watch -- my-script` | Watch only "my-script"                    |
-| `npm run format`                   | Format source code files with prettier    |
-| `npm run typecheck`                | Check for TypeScript errors               |
-| `npm run clean`                    | Remove the dist directory                 |
-| `npm run help`                     | Show build system help                    |
+| Command | Description |
+|---------|-------------|
+| `nibs new <directory>` | Create a new project |
+| `nibs build [directory]` | Build project (default command) |
+| `nibs watch [directory]` | Watch project and rebuild on changes |
+| `nibs help` | Show help information |
 
 ## Writing Scripts with Imports
 
@@ -136,7 +121,7 @@ You can split your code across multiple files using imports/exports. The build s
 
 ### Named Imports (Traditional Style)
 
-**projects/my-script/src/utils.ts**
+**src/utils.ts**
 
 ```typescript
 export interface Config {
@@ -153,7 +138,7 @@ export function log(message: string) {
 }
 ```
 
-**projects/my-script/src/index.ts**
+**src/index.ts**
 
 ```typescript
 import type { Config } from "./utils";
@@ -176,7 +161,7 @@ init();
 
 You can also use namespace imports (`import * as name`) to keep track of where functions come from:
 
-**projects/my-script/src/index.ts**
+**src/index.ts**
 
 ```typescript
 import type { Config } from "./utils";
@@ -206,42 +191,9 @@ const utils = {
 
 You can mix both styles in the same file if needed.
 
-### Coding Style and Formatting
-
-For your convenience, a formatting tool `prettier` is included to automatically format code to the common standard style for Javascript and Typescript. This tool aids in collaboration by reducing formatting friction between collaborators and presenting a readable and commonly-accepted standard of coding style. It can be invoked at any time with the package script:
-
-```bash
-npm run format
-```
-
 ## NovelAI API Reference
 
-The build system automatically downloads NovelAI type definitions. You get full IntelliSense for:
-
-### Core APIs
-
-- **`api.v1.storage`** - Persistent key-value storage
-- **`api.v1.hooks`** - Register hooks for generation events
-- **`api.v1.log()` / `api.v1.error()`** - Logging
-
-### Document & Editor
-
-- **`api.v1.document`** - Read and manipulate story paragraphs
-- **`api.v1.editor`** - Trigger generation, check editor state
-- **`api.v1.memory`** / **`api.v1.an`** - Story memory and author's note
-
-### Generation & AI
-
-- **`api.v1.generate`** - Generate text with GLM 4.6
-- **`api.v1.generationParameters`** - Get/set generation parameters
-- **`api.v1.image`** - Generate images
-- **`api.v1.tokenizer`** - Encode/decode text to tokens
-
-### Content & UI
-
-- **`api.v1.lorebook`** - Manage lorebook entries
-- **`api.v1.ui`** - Create UI extensions (buttons, panels, modals)
-- **`api.v1.commentBot`** - Control HypeBot
+The build system automatically downloads NovelAI type definitions. In supported editors you get full completion and IDE documentation.
 
 **Official Documentation**: [NovelAI Scripting Docs](https://docs.novelai.net/scripting/introduction.html)
 
@@ -251,10 +203,11 @@ Two example projects are included to demonstrate different use cases:
 
 ### example-script (Full-Featured)
 
-Located in `projects/example-script/`, this demonstrates:
+Located in `examples/example-script/`, this demonstrates:
 
 - **Modular code organization** with imports/exports across files
-- **UI extensions** - Toolbar buttons with callbacks
+- **UI
+ extensions** - Toolbar buttons with callbacks
 - **Generation hooks** - Intercept and modify generation
 - **Persistent storage** - Track data across script loads
 - **Lorebook API** - Query and filter entries
@@ -262,7 +215,7 @@ Located in `projects/example-script/`, this demonstrates:
 
 ### word-counter (Simple)
 
-Located in `projects/word-counter/`, this demonstrates:
+Located in `examples/word-counter/`, this demonstrates:
 
 - **Single-file script** - Simple project structure
 - **Document API** - Reading story text
@@ -275,7 +228,7 @@ Located in `projects/word-counter/`, this demonstrates:
 ### Use Watch Mode During Development
 
 ```bash
-npm run build:watch
+nibs watch
 ```
 
 Auto-rebuilds when you save. Keep it running while you work!
@@ -295,14 +248,14 @@ Output appears in browser console (F12).
 **Simple script:**
 
 ```text
-my-script/src/
+src/
 └── index.ts
 ```
 
 **Medium script:**
 
 ```text
-my-script/src/
+src/
 ├── utils.ts
 └── index.ts
 ```
@@ -310,7 +263,7 @@ my-script/src/
 **Complex script:**
 
 ```text
-my-script/src/
+src/
 ├── types.ts
 ├── config.ts
 ├── storage.ts
@@ -325,13 +278,13 @@ my-script/src/
 
 1. Run `npm install`
 2. Restart your TypeScript language server
-3. Run `npm run build` to download type definitions
+3. Run `nibs build` to download type definitions
 
 ### Type definitions not found
 
 ```bash
 rm -rf external/
-npm run build
+nibs build
 ```
 
 ### Script doesn't work in NovelAI
@@ -347,13 +300,12 @@ npm run build
 2. Make sure all imported files exist and have correct extensions
 3. Verify that you're using the latest version of the build system:
    ```bash
-   npm install
-   npm run build
+   npm install -g nibs-cli
    ```
 4. For Rollup-related issues, try a clean build:
    ```bash
-   npm run clean
-   npm run build
+   rm -rf dist/
+   nibs build
    ```
 
 ## FAQ
@@ -368,15 +320,28 @@ No. NovelAI scripts run in the browser without npm access. Use only:
 
 ### How do I add another project?
 
-Use the script `npm run new`. Or you may manually create a new folder in `projects/` with a `src/` subdirectory containing your TypeScript files. Optionally add a `project.yaml` for configuration. The build system will automatically generate a `project.yaml` file on first build.
+Use the CLI command `nibs new <directory>`. Or you may manually create a new folder with a `src/` subdirectory containing your TypeScript files.
 
-### Can I have just one project?
+### Legacy Projects (v3.x and earlier)
 
-Yes! Simply have one folder in `projects/`. If you want single-project simplicity, just put one project folder there.
+If you're upgrading from the older npm-run-script based version:
+
+1. **Install the CLI tool**:
+   ```bash
+   npm install -g nibs-cli
+   ```
+
+2. **Move your projects** out of the repository's `projects/` folder and into your own source control repository
+
+3. **Update your workflow**:
+   - Old: `npm run build -- my-project`
+   - New: `cd my-project && nibs build`
+
+The old multi-project-folder structure is no longer supported. Each script should now be managed in its own directory.
 
 ## License
 
-MIT License - feel free to use this build system for your NovelAI script projects!
+MIT License - feel free to use this CLI tool for your NovelAI script projects!
 
 ## Resources
 
@@ -387,4 +352,4 @@ MIT License - feel free to use this build system for your NovelAI script project
 
 ---
 
-**Ready to start?** Create a folder in `projects/` and start building your NovelAI scripts!
+**Ready to start?** Run `nibs new my-script` and start building your NovelAI scripts!

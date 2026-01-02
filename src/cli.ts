@@ -29,7 +29,7 @@ async function ensureTypesFile(projectPath: string) {
   }
 }
 
-program.description("NovelAI Script Build System").version("3.0.0");
+program.description("NovelAI Script Build System").version("4.0.0");
 
 program.command("new [directory]").action((directory = ".") => {
   const projectPath = resolve(cwd(), directory);
