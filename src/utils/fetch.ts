@@ -6,8 +6,8 @@ import { pipeline } from "stream/promises";
 
 const NAI_TYPES_URL = "https://novelai.net/scripting/types/script-types.d.ts";
 
-export async function fetchExternalTypes() {
-  const outputPath = join(process.cwd(), "external", "script-types.d.ts");
+export async function fetchExternalTypes(projectPath: string) {
+  const outputPath = join(projectPath, "external", "script-types.d.ts");
 
   await mkdir(dirname(outputPath), { recursive: true });
 
@@ -24,7 +24,6 @@ export async function fetchExternalTypes() {
   }
 
   try {
-    console.log("Gonna write it now");
     await pipeline(res.body, createWriteStream(outputPath));
   } catch (err) {
     console.error(err);

@@ -14,7 +14,10 @@ export function rollupInputOptions(project: Project): InputOptions {
           this.addWatchFile(join(project.path, "project.yaml"));
         },
       },
-      typescript({ exclude: ["external/"] }),
+      typescript({
+        exclude: ["external/"],
+        tsconfig: join(project.path, "tsconfig.json"),
+      }),
     ],
     onwarn(warning) {
       console.warn(warning.message);
@@ -34,7 +37,7 @@ ${meta.toString()}---*/
 
 export function rollupOutputOptions(project: Project): OutputOptions {
   return {
-    dir: join(process.cwd(), "dist"),
+    dir: join(project.path, "dist"),
     format: "esm",
     entryFileNames: `${project.name}.naiscript`,
     banner() {

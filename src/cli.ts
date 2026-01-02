@@ -22,10 +22,10 @@ async function ensureTypesFile(projectPath: string) {
     if (hoursOld < 24) {
       console.log("✓ Using cached NovelAI type definitions");
     } else {
-      await fetchExternalTypes();
+      await fetchExternalTypes(projectPath);
     }
   } catch (err) {
-    await fetchExternalTypes();
+    await fetchExternalTypes(projectPath);
   }
 }
 
@@ -51,7 +51,7 @@ program
       console.log(`\n✅ Build complete!`);
       // Show output file size
       const outputPath = join(
-        join(process.cwd(), "dist"),
+        join(projectPath, "dist"),
         `${project.name}.naiscript`,
       );
       const stats = await stat(outputPath);
@@ -87,10 +87,5 @@ program
       console.log(`Watch error: ${err.message}`);
     }
   });
-
-program
-  .command("fetch")
-  .description("Update types in external/script-types.d.ts")
-  .action(() => fetchExternalTypes());
 
 program.parse();
