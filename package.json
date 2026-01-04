@@ -8,7 +8,7 @@
   "license": "MIT",
   "type": "commonjs",
   "scripts": {
-    "prepublishOnly": "npm run build-cli",
+    "prepublishOnly": "npm run build",
     "build": "tsc",
     "format": "prettier . -w",
     "typecheck": "tsc --noEmit",
