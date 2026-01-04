@@ -1,20 +1,27 @@
 {
-  "name": "novelai-script-build-system",
-  "version": "3.2.3",
-  "description": "Multi-project build system for NovelAI scripts - bundles TypeScript files into single scripts",
-  "author": "Your Name <your.email@example.com>",
+  "name": "nibs-cli",
+  "version": "4.0.0",
+  "description": "Project build tool for NovelAI scripts - bundles TypeScript files into single scripts",
+  "bin": {
+    "nibs": "dist/cli.js"
+  },
   "license": "MIT",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
-    "build": "node build.ts build",
-    "build:watch": "node build.ts watch",
-    "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
+    "prepublishOnly": "npm run build-cli",
+    "build": "tsc",
     "format": "prettier . -w",
     "typecheck": "tsc --noEmit",
-    "new": "node build.ts new",
-    "help": "node build.ts --help"
+    "help": "node src/cli.ts --help"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">= 18"
   },
   "devDependencies": {
+    "prettier": "^3.7.4",
     "@types/node": "^25.0.0",
     "@types/rollup": "^0.51.4",
     "typescript": "^5.3.0"
@@ -23,7 +30,6 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "commander": "^14.0.2",
     "inquirer": "^13.0.2",
-    "prettier": "^3.7.4",
     "rollup": "^4.53.3",
     "yaml": "^2.8.2"
   }
