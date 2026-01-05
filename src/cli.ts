@@ -3,12 +3,13 @@
 import { program } from "commander";
 import { access, constants, stat } from "fs/promises";
 import { join, resolve } from "path";
-import { cwd } from "process";
+import { cwd, exit } from "process";
 import { buildProject } from "./commands/build";
 import { createNewProject } from "./commands/new";
 import { loadProject } from "./commands/project";
 import { watchProject } from "./commands/watch";
-import { fetchExternalTypes } from "./utils/fetch";
+import { fetchExternalTypes } from "./utils";
+import { importNaiscript } from "./commands/import";
 
 // Helpers
 async function ensureTypesFile(projectPath: string) {
@@ -86,6 +87,29 @@ program
     } catch (err: any) {
       console.log(`Watch error: ${err.message}`);
     }
+  });
+
+program
+  .command("import <naiscript>")
+  .description(
+    "Import a naiscript file and initialize a new directory with the decompiled script.",
+  )
+  .action(async (naiscript: string) => {
+    const filePath = resolve(cwd(), naiscript);
+
+    await access(filePath, constants.R_OK).catch(() => {
+      console.log(`File ${naiscript} is either not readable or doesn't exist.`);
+      exit(1);
+    });
+
+    if (!naiscript.endsWith(".naiscript")) {
+      console.log(`File ${naiscript} is not a '.naiscript' file.`);
+      exit(1);
+    }
+    await importNaiscript(filePath).catch((err) => {
+      console.log(`Error importing ${naiscript}: ${err.message}`);
+      exit(2);
+    });
   });
 
 program.parse();

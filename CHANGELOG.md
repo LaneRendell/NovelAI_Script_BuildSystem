@@ -2,7 +2,13 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
-## [4.0.0] - 2025-12-23
+## [4.1.0] - 2026-1-5
+
+### Added
+
+- **NIBS Import Command**: Added `nibs import <naiscript>` which parses a `.naiscript` file and produces a kebab-cased subdirectory containing the project structure, ready to build.
+
+## [4.0.0] - 2026-1-4
 
 ### Added
 

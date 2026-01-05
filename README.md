@@ -48,11 +48,22 @@ my-novelai-script/
 └── package.json               # Optional (for your own development dependencies such as prettier formatter)
 ```
 
-## Creating a New Project
+## Usage
 
-### Quick Start (No Configuration)
+### Importing an existing project
 
-1. Use the new command:
+1. Use the `import` command:
+
+   ```bash
+   nibs import my-script.naiscript
+   ```
+   
+   This will create a `my-script/` directory, importing the `project.yaml` and `src/index.ts` from the `.naiscript` file. You can immediately `cd` into that directory and `nibs build`.
+
+
+### Creating a New Project
+
+1. Use the `new` command:
 
    ```bash
    nibs new my-script
@@ -113,6 +124,7 @@ config:
 | `nibs new <directory>` | Create a new project |
 | `nibs build [directory]` | Build project (default command) |
 | `nibs watch [directory]` | Watch project and rebuild on changes |
+| `nibs import <file> | Import an existing .naiscript and create a project directory |
 | `nibs help` | Show help information |
 
 ## Writing Scripts with Imports
