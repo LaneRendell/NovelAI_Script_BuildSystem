@@ -4,34 +4,13 @@ import inquirer from "inquirer";
 import { basename, join } from "path";
 import yaml, { Document } from "yaml";
 import { currentEpochS, Project } from "./project";
+import { writeTsConfig } from "../utils";
 
 // Constants
 const INDEX_TS_TEMPLATE = `(async () => {
   api.v1.log("Hello World!");
 })();`;
 
-const TSCONFIG = {
-  compilerOptions: {
-    target: "ES2023",
-    module: "ESNext",
-    lib: ["ES2023"],
-    moduleResolution: "bundler",
-    strict: true,
-    esModuleInterop: true,
-    skipLibCheck: true,
-    forceConsistentCasingInFileNames: true,
-    allowSyntheticDefaultImports: true,
-    noUnusedLocals: true,
-    noUnusedParameters: true,
-    noImplicitReturns: true,
-    noFallthroughCasesInSwitch: true,
-    noEmit: true,
-    typeRoots: ["./external", "./node_modules/@types"],
-    rewriteRelativeImportExtensions: true,
-  },
-  include: ["src/**/*", "external/**/*"],
-  exclude: ["node_modules", "dist", "**/*.test.ts"],
-};
 const COMPAT_VERSION = "naiscript-1.0";
 // Helpers
 
@@ -103,11 +82,7 @@ export async function createNewProject(projectPath: string): Promise<void> {
       "utf-8",
     ),
     writeFile(join(projectPath, "src", "index.ts"), INDEX_TS_TEMPLATE, "utf-8"),
-    writeFile(
-      join(projectPath, "tsconfig.json"),
-      JSON.stringify(TSCONFIG),
-      "utf-8",
-    ),
+    writeTsConfig(projectPath),
   ]);
 
   console.log(`Project initialized at ${projectPath}`);

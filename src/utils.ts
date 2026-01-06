@@ -1,5 +1,5 @@
 import { createWriteStream } from "fs";
-import { mkdir } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { dirname } from "path/posix";
 import { pipeline } from "stream/promises";
@@ -29,4 +29,35 @@ export async function fetchExternalTypes(projectPath: string) {
     console.error(err);
     throw err;
   }
+}
+
+const TSCONFIG = {
+  compilerOptions: {
+    target: "ES2023",
+    module: "ESNext",
+    lib: ["ES2023"],
+    moduleResolution: "bundler",
+    strict: true,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    forceConsistentCasingInFileNames: true,
+    allowSyntheticDefaultImports: true,
+    noUnusedLocals: true,
+    noUnusedParameters: true,
+    noImplicitReturns: true,
+    noFallthroughCasesInSwitch: true,
+    noEmit: true,
+    typeRoots: ["./external", "./node_modules/@types"],
+    rewriteRelativeImportExtensions: true,
+  },
+  include: ["src/**/*", "external/**/*"],
+  exclude: ["node_modules", "dist", "**/*.test.ts"],
+};
+
+export function writeTsConfig(projectPath: string) {
+  return writeFile(
+    join(projectPath, "tsconfig.json"),
+    JSON.stringify(TSCONFIG, undefined, 2),
+    "utf-8",
+  );
 }
