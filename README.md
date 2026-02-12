@@ -124,7 +124,7 @@ config:
 | `nibs new <directory>` | Create a new project |
 | `nibs build [directory]` | Build project (default command) |
 | `nibs watch [directory]` | Watch project and rebuild on changes |
-| `nibs import <file> | Import an existing .naiscript and create a project directory |
+| `nibs import <file>` | Import an existing .naiscript and create a project directory |
 | `nibs help` | Show help information |
 
 ## Writing Scripts with Imports
@@ -202,6 +202,60 @@ const utils = {
 ```
 
 You can mix both styles in the same file if needed.
+
+## Using npm Packages
+
+NIBS can bundle npm packages into your scripts. Since the build system uses Rollup with node module resolution, any package you install in your project directory can be imported and inlined into the final `.naiscript` output.
+
+### Setup
+
+Initialize a `package.json` in your project directory and install packages:
+
+```bash
+cd my-script
+npm init -y
+npm install lodash-es
+```
+
+Then import them in your TypeScript files:
+
+```typescript
+import { debounce } from "lodash-es";
+
+const debouncedSave = debounce(async () => {
+  await api.v1.storage.set("data", myData);
+}, 500);
+```
+
+The build system resolves the import from `node_modules/`, inlines the package code, and produces a single self-contained `.naiscript` file with no external dependencies.
+
+### Runtime Constraints
+
+**NovelAI scripts run inside a Web Worker sandbox powered by the QuickJS runtime.** This is a very different environment from Node.js or a browser page. Packages you use must be compatible with these constraints:
+
+- **No Node.js APIs** - `fs`, `path`, `http`, `child_process`, `Buffer`, and all other Node.js built-in modules are unavailable
+- **No DOM APIs** - `document`, `window`, `localStorage`, and other browser page APIs are unavailable (scripts run in a Web Worker, not a page)
+- **No network access** - `fetch`, `XMLHttpRequest`, and WebSocket are unavailable
+- **QuickJS engine** - The JavaScript engine is QuickJS, not V8. Most ES2023 features are supported, but some newer APIs or V8-specific behaviors may not be available
+
+### What Works
+
+- **Pure logic packages** - Algorithms, data structures, parsers, math libraries, string manipulation, validation
+- **ESM packages** - Packages that ship ES module builds (check for `"module"` or `"exports"` fields in the package's `package.json`)
+
+### What Won't Work
+
+- Packages that depend on Node.js built-in modules (e.g., `axios`, `fs-extra`)
+- Packages that access the DOM (e.g., `react`, `jquery`)
+- Packages that use network APIs (e.g., `node-fetch`, `socket.io-client`)
+- Packages that ship only CommonJS builds (no ESM entry point) — these may fail to bundle correctly
+
+### Tips
+
+- Check a package's dependencies and source before installing — if it imports `fs`, `http`, or `path`, it won't work
+- Prefer packages with `-es` or `esm` variants (e.g., `lodash-es` instead of `lodash`)
+- Keep your bundle small — every dependency gets inlined into the final script
+- Test your built `.naiscript` in NovelAI after adding new packages to catch runtime incompatibilities early
 
 ## NovelAI API Reference
 
@@ -324,11 +378,7 @@ nibs build
 
 ### Can I use npm packages?
 
-No. NovelAI scripts run in the browser without npm access. Use only:
-
-- Browser-native APIs
-- The NovelAI API (`api.v1.*`)
-- Your own code
+Yes, as of v4.2! Install packages with `npm install` in your project directory and import them normally. The build system bundles them into your `.naiscript` file. However, NovelAI scripts run in a **Web Worker sandbox under the QuickJS runtime**, so packages must be pure JavaScript logic with no Node.js, DOM, or network dependencies. See [Using npm Packages](#using-npm-packages) for details.
 
 ### How do I add another project?
 

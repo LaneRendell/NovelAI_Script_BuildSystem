@@ -2,6 +2,13 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.2.0] - 2026-2-12
+
+### Added
+
+- **npm Package Support**: Scripts can now import npm packages. The build system resolves and inlines dependencies from `node_modules/` into the final `.naiscript` bundle using `@rollup/plugin-node-resolve`. Packages must be ESM-compatible and free of Node.js, DOM, or network dependencies, as NovelAI scripts run in a QuickJS Web Worker sandbox.
+- **GitHub Actions Publish Workflow**: Added CI workflow to automatically publish to npm on GitHub release using OIDC trusted publishing.
+
 ## [4.1.0] - 2026-1-5
 
 ### Added

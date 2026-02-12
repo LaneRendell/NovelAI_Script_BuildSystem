@@ -1,0 +1,43 @@
+# Publish to npm on GitHub Release
+#
+# Uses OIDC trusted publishing (id-token: write) — no NPM_TOKEN secret needed.
+# First publish must be done manually:
+#   npm publish --access public
+# Then configure trusted publishing on npmjs.com:
+#   npmjs.com → Package Settings → Trusted Publishing → Add GitHub Actions
+
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm (>=11.5.1 for OIDC)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public
