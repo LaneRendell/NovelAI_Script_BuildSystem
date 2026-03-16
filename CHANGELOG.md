@@ -2,6 +2,10 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.2.1] - 2026-3-16
+
+- Bump rollup version to 4.59.0 to address high-sev path traversal risk
+
 ## [4.2.0] - 2026-2-12
 
 ### Added
