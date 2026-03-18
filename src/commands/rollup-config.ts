@@ -8,6 +8,7 @@ import { Project } from "./project";
 export function rollupInputOptions(project: Project): InputOptions {
   return {
     input: join(project.path, "src", "index.ts"),
+    preserveSymlinks: true,
     plugins: [
       nodeResolve(),
       {

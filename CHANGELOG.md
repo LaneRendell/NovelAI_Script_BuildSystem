@@ -2,6 +2,10 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.2.2] - 2026-3-18
+
+- Set *preserveSymlinks: true* in rollup config so that packages in development can be symlinked into a project with `npm link`.
+
 ## [4.2.1] - 2026-3-16
 
 - Bump rollup version to 4.59.0 to address high-sev path traversal risk
