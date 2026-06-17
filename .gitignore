@@ -27,3 +27,6 @@ yarn-error.log*
 # Environment
 .env
 .env.local
+
+# Superpowers working docs (specs/plans — local only)
+docs/superpowers/

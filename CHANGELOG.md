@@ -2,6 +2,13 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.3.0] - 2026-6-17
+
+### Added
+
+- **Build Minification**: `nibs build` now accepts a `--minify` flag that minifies the `.naiscript` output in place via `@rollup/plugin-terser`. Builds remain readable by default. Minification can also be enabled persistently with a `minify: true` key in `project.yaml`; the CLI flag overrides it (`--no-minify` forces a readable build).
+- **Experimental Type Definitions**: The build now also fetches NovelAI's experimental type definitions (`script-types-experimental.d.ts` and `jsx-typings.d.ts`) alongside the standard and JSX types, giving scripts type hints for experimental scripting APIs. Fetched into `external/` with the same 24-hour caching as the other type files.
+
 ## [4.2.2] - 2026-3-18
 
 - Set *preserveSymlinks: true* in rollup config so that packages in development can be symlinked into a project with `npm link`.

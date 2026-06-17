@@ -10,6 +10,7 @@ A CLI tool for building NovelAI scripts from TypeScript files. This tool uses Ro
 - **Type Safety**: Full TypeScript support with IntelliSense and type checking
 - **Watch Mode**: Automatic rebuilds when files change during development
 - **Single File Output**: Each project bundles into one script with no external dependencies
+- **Optional Minification**: Build with `--minify` to produce a smaller `.naiscript`, while keeping the default output readable
 
 ## Quick Start
 
@@ -44,7 +45,9 @@ my-novelai-script/
 ├── dist/                      # Build output (generated)
 │   └── my-script.naiscript    # Built script ready for NovelAI
 ├── external/                  # Auto-downloaded type definitions
-│   └── script-types.d.ts
+│   ├── script-types.d.ts
+│   ├── script-types-experimental.d.ts
+│   └── jsx-typings.d.ts
 └── package.json               # Optional (for your own development dependencies such as prettier formatter)
 ```
 
@@ -100,6 +103,7 @@ description: My amazing NovelAI script
 memoryLimit: 8
 createdAt: 1234567890123
 updatedAt: 1234567894564
+minify: false
 config:
   - # Custom configuration items here
 ```
@@ -115,6 +119,7 @@ config:
 - `memoryLimit` - How many megabytes of in-browser local-storage memory your script can use for storage. Maximum 128.
 - `createdAt` - Timestamp of when your script was created
 - `updatedAt` - Timestamp of when script was updated. Automatically updated on builds
+- `minify` - Optional. When `true`, builds are minified by default. Overridden by the `--minify` / `--no-minify` CLI flags. Defaults to `false`.
 - `config` - Array of custom configuration items (replaces config.yaml)
 
 ## CLI Commands
@@ -126,6 +131,13 @@ config:
 | `nibs watch [directory]` | Watch project and rebuild on changes |
 | `nibs import <file>` | Import an existing .naiscript and create a project directory |
 | `nibs help` | Show help information |
+
+**Build options:**
+
+- `--minify` — Minify the output `.naiscript` (smaller, unreadable). Overrides `minify: false` in `project.yaml`.
+- `--no-minify` — Force a readable build, overriding `minify: true` in `project.yaml`.
+
+By default builds are un-minified and readable.
 
 ## Writing Scripts with Imports
 
