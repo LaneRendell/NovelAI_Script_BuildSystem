@@ -1,33 +1,56 @@
 import { createWriteStream } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, stat, writeFile } from "fs/promises";
 import { join } from "path";
-import { dirname } from "path/posix";
 import { pipeline } from "stream/promises";
 
-const NAI_TYPES_URL = "https://novelai.net/scripting/types/script-types.d.ts";
+const NAI_TYPES_URL_BASE = "https://novelai.net/scripting/types/";
+const NAI_TYPES = "script-types.d.ts"
+const JSX_TYPES = "jsx-typings.d.ts"
+const EXPERIMENTAL_TYPES = "script-types-experimental.d.ts"
+
+const TYPE_FILES = [NAI_TYPES, JSX_TYPES, EXPERIMENTAL_TYPES];
+const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+async function isFresh(path: string) {
+  try {
+    const { mtimeMs } = await stat(path);
+    return Date.now() - mtimeMs < MAX_AGE_MS;
+  } catch {
+    // File doesn't exist (or can't be read) -> treat as stale so we fetch it.
+    return false;
+  }
+}
 
 export async function fetchExternalTypes(projectPath: string) {
-  const outputPath = join(projectPath, "external", "script-types.d.ts");
+  const externalDir = join(projectPath, "external");
+  await mkdir(externalDir, { recursive: true });
 
-  await mkdir(dirname(outputPath), { recursive: true });
+  for (const file of TYPE_FILES) {
+    const outputPath = join(externalDir, file);
 
-  console.log("📥 Fetching NovelAI type definitions...");
+    if (await isFresh(outputPath)) {
+      console.log(`✓ ${file} is up to date, skipping.`);
+      continue;
+    }
 
-  const res = await fetch(NAI_TYPES_URL);
+    console.log(`📥 Fetching ${file}...`);
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch types: HTTP ${res.status}, ${res.statusText}`,
-    );
-  } else if (!res.body) {
-    throw new Error("Got result, but body is empty");
-  }
+    const res = await fetch(NAI_TYPES_URL_BASE + file);
 
-  try {
-    await pipeline(res.body, createWriteStream(outputPath));
-  } catch (err) {
-    console.error(err);
-    throw err;
+    if (!res.ok) {
+      throw new Error(
+        `Failed to fetch ${file}: HTTP ${res.status}, ${res.statusText}`,
+      );
+    } else if (!res.body) {
+      throw new Error(`Got result for ${file}, but body is empty`);
+    }
+
+    try {
+      await pipeline(res.body, createWriteStream(outputPath));
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "nibs-cli",
-  "version": "4.2.3",
+  "version": "4.3.0",
   "description": "Project build tool for NovelAI scripts - bundles TypeScript files into single scripts",
   "bin": {
     "nibs": "dist/cli.js"
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "commander": "^14.0.2",
     "inquirer": "^13.0.2",

@@ -11,25 +11,6 @@ import { watchProject } from "./commands/watch";
 import { fetchExternalTypes } from "./utils";
 import { importNaiscript } from "./commands/import";
 
-// Helpers
-async function ensureTypesFile(projectPath: string) {
-  try {
-    const stats = await stat(
-      join(projectPath, "external", "script-types.d.ts"),
-    );
-    const age = Date.now() - stats.mtimeMs;
-    const hoursOld = age / (1000 * 60 * 60);
-
-    if (hoursOld < 24) {
-      console.log("✓ Using cached NovelAI type definitions");
-    } else {
-      await fetchExternalTypes(projectPath);
-    }
-  } catch (err) {
-    await fetchExternalTypes(projectPath);
-  }
-}
-
 program.description("NovelAI Script Build System").version("4.2.3");
 
 program.command("new [directory]").action((directory = ".") => {
@@ -41,13 +22,17 @@ program.command("new [directory]").action((directory = ".") => {
 program
   .command("build [directory]", { isDefault: true })
   .description("Build project")
-  .action(async (directory = ".") => {
+  .option("--minify", "Minify the build output")
+  .option("--no-minify", "Force a readable (un-minified) build")
+  .action(async (directory = ".", options) => {
     const projectPath = resolve(cwd(), directory);
-    await ensureTypesFile(projectPath);
+    await fetchExternalTypes(projectPath);
 
     try {
       const project = await loadProject(projectPath);
-      await buildProject(project);
+      // CLI flag wins; otherwise fall back to project.yaml; default false.
+      const minify = options.minify ?? project.meta.get("minify") === true;
+      await buildProject(project, minify);
 
       console.log(`\n✅ Build complete!`);
       // Show output file size
@@ -57,7 +42,11 @@ program
       );
       const stats = await stat(outputPath);
       const sizeKB = (stats.size / 1024).toFixed(2);
-      console.log(`✅ Built: dist/${project.name}.naiscript (${sizeKB} KB)`);
+      console.log(
+        `✅ Built: dist/${project.name}.naiscript (${sizeKB} KB)${
+          minify ? " (minified)" : ""
+        }`,
+      );
 
       process.exit(0);
     } catch (err) {
@@ -71,7 +60,7 @@ program
   .description("Automatically watch and rebuild project on changes.")
   .action(async (directory = ".") => {
     const projectPath = resolve(cwd(), directory);
-    await ensureTypesFile(projectPath);
+    await fetchExternalTypes(projectPath);
 
     try {
       const project = await loadProject(projectPath);
