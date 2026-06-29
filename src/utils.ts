@@ -78,6 +78,11 @@ const TSCONFIG = {
     strict: true,
     esModuleInterop: true,
     skipLibCheck: true,
+    // NovelAI's JSX/TSX runtime provides `h` and `Fragment` as globals,
+    // so use the classic factory (no automatic-runtime import).
+    jsx: "react",
+    jsxFactory: "h",
+    jsxFragmentFactory: "Fragment",
     forceConsistentCasingInFileNames: true,
     allowSyntheticDefaultImports: true,
     noUnusedLocals: true,

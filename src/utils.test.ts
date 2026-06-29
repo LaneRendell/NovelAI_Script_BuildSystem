@@ -2,7 +2,23 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { copyIconTypes } from "./utils";
+import { copyIconTypes, writeTsConfig } from "./utils";
+
+describe("writeTsConfig", () => {
+  it("enables JSX/TSX authoring with the global h/Fragment factory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "nibs-tsconfig-"));
+    await writeTsConfig(dir);
+
+    const tsconfig = JSON.parse(
+      await readFile(join(dir, "tsconfig.json"), "utf-8"),
+    );
+    expect(tsconfig.compilerOptions.jsx).toBe("react");
+    expect(tsconfig.compilerOptions.jsxFactory).toBe("h");
+    expect(tsconfig.compilerOptions.jsxFragmentFactory).toBe("Fragment");
+
+    await rm(dir, { recursive: true, force: true });
+  });
+});
 
 describe("copyIconTypes", () => {
   let dir: string;
