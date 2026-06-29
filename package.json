@@ -33,6 +33,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "commander": "^14.0.2",
+    "feather-icons": "^4.29.2",
     "inquirer": "^13.0.2",
     "prettier": "^3.7.4",
     "rollup": "^4.59.0",
