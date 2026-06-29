@@ -282,7 +282,7 @@ import { Zap, Edit } from "nai:icons/feather";
 <Edit color="#88c" strokeWidth={1.5} />
 ```
 
-**Props:** `size` (number, default 24 → sets width/height), `color`
+**Props:** `size` (number, default 16 → sets width/height), `color`
 (default `"currentColor"` so icons inherit the surrounding theme color),
 `strokeWidth` (default 2). Any other prop (`class`, `style`, `onClick`,
 `aria-*`, …) passes through to the underlying `<svg>`.

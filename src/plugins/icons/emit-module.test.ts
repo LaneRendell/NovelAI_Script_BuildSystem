@@ -40,6 +40,12 @@ describe("emitModule", () => {
     expect(code).not.toMatch(/import[^\n]*\bh\b/);
   });
 
+  it("defaults width/height to 16 (NAI UI default), matching the runtime", () => {
+    const code = emitModule(sample);
+    expect(code).toContain("width: size ?? 16");
+    expect(code).toContain("height: size ?? 16");
+  });
+
   it("matches the Zap factory snapshot", () => {
     const code = emitModule(sample);
     const zapLine = code.split("\n").find((l) => l.startsWith("export const Zap"));

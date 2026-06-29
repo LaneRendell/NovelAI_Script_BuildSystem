@@ -6,8 +6,8 @@ const MAKE = `const make = (viewBox, build) => (props = {}) => {
   const { size, color, strokeWidth, ...rest } = props;
   return h("svg", {
     xmlns: "http://www.w3.org/2000/svg",
-    width: size ?? 24,
-    height: size ?? 24,
+    width: size ?? 16,
+    height: size ?? 16,
     viewBox,
     fill: "none",
     stroke: color ?? "currentColor",
