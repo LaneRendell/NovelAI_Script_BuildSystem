@@ -4,6 +4,7 @@ import typescript from "@rollup/plugin-typescript";
 import { join } from "path";
 import { InputOptions, OutputOptions } from "rollup";
 import { Document } from "yaml";
+import { iconsPlugin } from "../plugins/icons";
 import { Project } from "./project";
 
 export function rollupInputOptions(
@@ -14,6 +15,7 @@ export function rollupInputOptions(
     input: join(project.path, "src", "index.ts"),
     preserveSymlinks: true,
     plugins: [
+      iconsPlugin(),
       nodeResolve(),
       {
         name: "watch-project-yaml",
