@@ -1,7 +1,11 @@
 import { createWriteStream } from "fs";
-import { mkdir, stat, writeFile } from "fs/promises";
+import { cp, mkdir, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { pipeline } from "stream/promises";
+
+const ICON_TYPES_FILE = "nai-icons.d.ts";
+// dist/utils.js lives in dist/, the asset ships at dist/assets/nai-icons.d.ts
+const ICON_TYPES_SOURCE = join(__dirname, "assets", ICON_TYPES_FILE);
 
 const NAI_TYPES_URL_BASE = "https://novelai.net/scripting/types/";
 const NAI_TYPES = "script-types.d.ts"
@@ -52,6 +56,17 @@ export async function fetchExternalTypes(projectPath: string) {
       throw err;
     }
   }
+
+  await copyIconTypes(projectPath);
+}
+
+export async function copyIconTypes(
+  projectPath: string,
+  source: string = ICON_TYPES_SOURCE,
+): Promise<void> {
+  const externalDir = join(projectPath, "external");
+  await mkdir(externalDir, { recursive: true });
+  await cp(source, join(externalDir, ICON_TYPES_FILE));
 }
 
 const TSCONFIG = {
