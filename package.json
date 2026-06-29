@@ -12,7 +12,9 @@
     "build": "tsc",
     "format": "prettier . -w",
     "typecheck": "tsc --noEmit",
-    "help": "node src/cli.ts --help"
+    "help": "node src/cli.ts --help",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "files": [
     "dist"
@@ -23,7 +25,8 @@
   "devDependencies": {
     "@types/node": "^25.0.0",
     "@types/rollup": "^0.51.4",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@rollup/plugin-node-resolve": "^16.0.3",
