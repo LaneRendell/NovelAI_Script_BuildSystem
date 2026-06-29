@@ -12,7 +12,7 @@ const ALLOWED_TAGS = new Set([
 
 // Matches an opening element (self-closing or not). Closing tags ("</tag>")
 // don't match because the char after "<" must be a letter, not "/".
-const ELEMENT_RE = /<([a-zA-Z][\w-]*)((?:\s+[\w:-]+\s*=\s*"[^"]*")*)\s*\/?>/g;
+const ELEMENT_RE = /<([a-zA-Z][\w-]*)([^>]*?)\/?\s*>/g;
 const ATTR_RE = /([\w:-]+)\s*=\s*"([^"]*)"/g;
 
 export function parseSvgFragment(fragment: string): SvgNode[] {

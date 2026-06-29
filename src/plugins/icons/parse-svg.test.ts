@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { parseSvgFragment } from "./parse-svg";
 
 describe("parseSvgFragment", () => {
-  it("parses a self-closing element with attributes", () => {
+  it("parses an open/close element with attributes", () => {
     const nodes = parseSvgFragment(
       '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
     );
@@ -23,6 +23,12 @@ describe("parseSvgFragment", () => {
 
   it("throws on a non-whitelisted element", () => {
     expect(() => parseSvgFragment('<script>alert(1)</script>')).toThrow(
+      "Unsupported SVG element 'script' in icon fragment",
+    );
+  });
+
+  it("throws on a non-whitelisted element that has a valueless attribute", () => {
+    expect(() => parseSvgFragment('<script hidden></script>')).toThrow(
       "Unsupported SVG element 'script' in icon fragment",
     );
   });
