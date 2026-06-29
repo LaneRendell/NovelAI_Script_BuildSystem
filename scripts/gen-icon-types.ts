@@ -14,7 +14,10 @@ interface IconProps {
   onClick?: (e: any) => void;
   [key: string]: unknown;
 }
-type IconComponent = (props?: IconProps) => unknown;
+// Return JSX.Element (globally provided by the NAI JSX typings as preact.VNode)
+// so each icon is usable as a JSX component under strict TS. A bare unknown trips
+// TS2786. JSX.Element resolves in any consumer project without coupling to preact.
+type IconComponent = (props?: IconProps) => JSX.Element;
 `;
 
 async function main() {
