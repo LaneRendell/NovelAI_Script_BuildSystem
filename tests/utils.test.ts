@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { copyIconTypes, writeTsConfig } from "./utils";
+import { copyIconTypes, writeTsConfig } from "../src/utils";
 
 describe("writeTsConfig", () => {
   it("enables JSX/TSX authoring with the global h/Fragment factory", async () => {

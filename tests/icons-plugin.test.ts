@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { join } from "path";
 import { rollup } from "rollup";
-import { iconsPlugin } from "./index";
+import { iconsPlugin } from "../src/plugins/icons";
 
-const fixtures = join(__dirname, "..", "..", "..", "tests", "fixtures");
+const fixtures = join(__dirname, "fixtures");
 
 async function build(entry: string): Promise<string> {
   const bundle = await rollup({

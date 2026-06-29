@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import ts from "typescript";
-import { emitModule } from "./emit-module";
-import { IconData } from "./types";
+import { emitModule } from "../src/plugins/icons/emit-module";
+import { IconData } from "../src/plugins/icons/types";
 
 const sample = new Map<string, IconData>([
   [

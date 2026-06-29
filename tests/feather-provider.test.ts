@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { featherProvider } from "./feather-provider";
+import { featherProvider } from "../src/plugins/icons/feather-provider";
 
 describe("featherProvider", () => {
   it("loads the full feather set", async () => {

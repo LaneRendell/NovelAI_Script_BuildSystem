@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSvgFragment } from "./parse-svg";
+import { parseSvgFragment } from "../src/plugins/icons/parse-svg";
 
 describe("parseSvgFragment", () => {
   it("parses an open/close element with attributes", () => {
