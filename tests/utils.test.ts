@@ -43,4 +43,14 @@ describe("copyIconTypes", () => {
     expect(copied).toContain('declare module "nai:icons/feather"');
     await rm(dir, { recursive: true, force: true });
   });
+
+  it("does not throw when the source asset is missing (editor convenience, non-fatal)", async () => {
+    const projectPath = join(dir, "project-missing");
+    await mkdir(projectPath, { recursive: true });
+
+    await expect(
+      copyIconTypes(projectPath, join(dir, "does-not-exist.d.ts")),
+    ).resolves.toBeUndefined();
+    await rm(dir, { recursive: true, force: true });
+  });
 });

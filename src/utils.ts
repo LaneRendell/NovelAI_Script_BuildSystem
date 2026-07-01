@@ -64,9 +64,18 @@ export async function copyIconTypes(
   projectPath: string,
   source: string = ICON_TYPES_SOURCE,
 ): Promise<void> {
-  const externalDir = join(projectPath, "external");
-  await mkdir(externalDir, { recursive: true });
-  await cp(source, join(externalDir, ICON_TYPES_FILE));
+  try {
+    const externalDir = join(projectPath, "external");
+    await mkdir(externalDir, { recursive: true });
+    await cp(source, join(externalDir, ICON_TYPES_FILE));
+  } catch (err) {
+    // The icon .d.ts is an editor convenience, not build-critical. A missing
+    // asset (e.g. a bare `node dist/cli.js build` that skipped the copy-assets
+    // step) must not abort the build/watch — warn and carry on.
+    console.warn(
+      `⚠ Skipped icon type definitions: ${(err as Error).message}`,
+    );
+  }
 }
 
 const TSCONFIG = {
