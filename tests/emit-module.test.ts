@@ -46,6 +46,22 @@ describe("emitModule", () => {
     expect(code).toContain("height: size ?? 16");
   });
 
+  it("recursively emits nested children (nesting is allowed for future providers)", () => {
+    const nested = new Map<string, IconData>([
+      [
+        "Nested",
+        {
+          viewBox: "0 0 24 24",
+          children: [
+            { tag: "rect", attrs: { x: "1" }, children: [{ tag: "circle", attrs: { cx: "2" } }] },
+          ],
+        },
+      ],
+    ]);
+    const code = emitModule(nested);
+    expect(code).toContain('h("rect", {"x":"1"}, h("circle", {"cx":"2"}))');
+  });
+
   it("matches the Zap factory snapshot", () => {
     const code = emitModule(sample);
     const zapLine = code.split("\n").find((l) => l.startsWith("export const Zap"));
