@@ -269,6 +269,27 @@ The build system resolves the import from `node_modules/`, inlines the package c
 - Keep your bundle small — every dependency gets inlined into the final script
 - Test your built `.naiscript` in NovelAI after adding new packages to catch runtime incompatibilities early
 
+## Using Icons
+
+nibs ships the [feather](https://feathericons.com/) iconset as first-class
+imports. Import only the icons you need — unused icons are tree-shaken out of
+the final `.naiscript`:
+
+```tsx
+import { Zap, Edit } from "nai:icons/feather";
+
+<Zap size={16} />
+<Edit color="#88c" strokeWidth={1.5} />
+```
+
+**Props:** `size` (number, default 16 → sets width/height), `color`
+(default `"currentColor"` so icons inherit the surrounding theme color),
+`strokeWidth` (default 2). Any other prop (`class`, `style`, `onClick`,
+`aria-*`, …) passes through to the underlying `<svg>`.
+
+Types resolve automatically — `nibs build`/`watch` writes the icon type
+declarations into your project's `external/` directory.
+
 ## NovelAI API Reference
 
 The build system automatically downloads NovelAI type definitions. In supported editors you get full completion and IDE documentation.

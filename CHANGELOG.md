@@ -2,6 +2,18 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.4.0]
+
+### Added
+- First-class iconset bundling: `import { Zap } from "nai:icons/feather"` and
+  use `<Zap size={16} />`. Only imported icons are included (tree-shaken).
+  Whitelist-safe SVG built at compile time via the runtime global `h` — no
+  innerHTML, no runtime parsing.
+- Vitest test runner and a CI workflow (typecheck → test → build).
+- Scaffolded projects now enable JSX/TSX authoring out of the box (`jsx: "react"`,
+  `jsxFactory: "h"`, `jsxFragmentFactory: "Fragment"`) to match NovelAI's global
+  `h`/`Fragment` runtime.
+
 ## [4.3.0] - 2026-6-17
 
 ### Added

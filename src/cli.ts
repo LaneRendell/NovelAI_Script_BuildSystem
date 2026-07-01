@@ -11,7 +11,7 @@ import { watchProject } from "./commands/watch";
 import { fetchExternalTypes } from "./utils";
 import { importNaiscript } from "./commands/import";
 
-program.description("NovelAI Script Build System").version("4.2.3");
+program.description("NovelAI Script Build System").version("4.4.0");
 
 program.command("new [directory]").action((directory = ".") => {
   const projectPath = resolve(cwd(), directory);

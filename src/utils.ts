@@ -1,7 +1,11 @@
 import { createWriteStream } from "fs";
-import { mkdir, stat, writeFile } from "fs/promises";
+import { cp, mkdir, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { pipeline } from "stream/promises";
+
+const ICON_TYPES_FILE = "nai-icons.d.ts";
+// dist/utils.js lives in dist/, the asset ships at dist/assets/nai-icons.d.ts
+const ICON_TYPES_SOURCE = join(__dirname, "assets", ICON_TYPES_FILE);
 
 const NAI_TYPES_URL_BASE = "https://novelai.net/scripting/types/";
 const NAI_TYPES = "script-types.d.ts"
@@ -52,6 +56,26 @@ export async function fetchExternalTypes(projectPath: string) {
       throw err;
     }
   }
+
+  await copyIconTypes(projectPath);
+}
+
+export async function copyIconTypes(
+  projectPath: string,
+  source: string = ICON_TYPES_SOURCE,
+): Promise<void> {
+  try {
+    const externalDir = join(projectPath, "external");
+    await mkdir(externalDir, { recursive: true });
+    await cp(source, join(externalDir, ICON_TYPES_FILE));
+  } catch (err) {
+    // The icon .d.ts is an editor convenience, not build-critical. A missing
+    // asset (e.g. a bare `node dist/cli.js build` that skipped the copy-assets
+    // step) must not abort the build/watch — warn and carry on.
+    console.warn(
+      `⚠ Skipped icon type definitions: ${(err as Error).message}`,
+    );
+  }
 }
 
 const TSCONFIG = {
@@ -63,6 +87,11 @@ const TSCONFIG = {
     strict: true,
     esModuleInterop: true,
     skipLibCheck: true,
+    // NovelAI's JSX/TSX runtime provides `h` and `Fragment` as globals,
+    // so use the classic factory (no automatic-runtime import).
+    jsx: "react",
+    jsxFactory: "h",
+    jsxFragmentFactory: "Fragment",
     forceConsistentCasingInFileNames: true,
     allowSyntheticDefaultImports: true,
     noUnusedLocals: true,
