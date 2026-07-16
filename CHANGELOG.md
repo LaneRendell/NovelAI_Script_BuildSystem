@@ -2,6 +2,15 @@
 
 All notable changes to the NovelAI Script Build System will be documented in this file.
 
+## [4.4.1]
+
+### Fixed
+- Iconset bundling no longer emits an `xmlns` attribute on the generated `<svg>`.
+  Icons are built as live DOM via the runtime global `h`, which namespaces the
+  element from its tag name, so the attribute was redundant — and NovelAI's
+  QuickJS ProxyDOM blocked it, logging a `Blocked attribute "xmlns" on <svg>`
+  warning at runtime.
+
 ## [4.4.0]
 
 ### Added

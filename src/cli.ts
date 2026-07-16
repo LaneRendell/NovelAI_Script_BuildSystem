@@ -1,6 +1,7 @@
 #! /usr/bin/env node
 
 import { program } from "commander";
+import { readFileSync } from "fs";
 import { access, constants, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { cwd, exit } from "process";
@@ -11,7 +12,14 @@ import { watchProject } from "./commands/watch";
 import { fetchExternalTypes } from "./utils";
 import { importNaiscript } from "./commands/import";
 
-program.description("NovelAI Script Build System").version("4.4.0");
+// Single source of truth: read the version from package.json at runtime.
+// dist/cli.js lives in dist/, so ".." is the package root in-repo and when
+// installed (npm ships package.json alongside the "files": ["dist"] output).
+const { version } = JSON.parse(
+  readFileSync(join(__dirname, "..", "package.json"), "utf8"),
+);
+
+program.description("NovelAI Script Build System").version(version);
 
 program.command("new [directory]").action((directory = ".") => {
   const projectPath = resolve(cwd(), directory);
